@@ -1,0 +1,20 @@
+{
+  "name": "filerakshak",
+  "version": "1.0.0",
+  "description": "A secure file vault desktop application.",
+  "main": "main.js",
+  "scripts": {
+    "start": "concurrently \"npm run start --prefix frontend\" \"electron .\"",
+    "preview": "npm run build --prefix frontend && electron ."
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bcrypt": "^5.1.1"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "electron": "^31.0.1"
+  }
+}

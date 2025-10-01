@@ -1,106 +1,186 @@
-import React from 'react';
-import { ArrowRight, ShieldCheck } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { ShieldCheck, Lock, KeyRound, HelpCircle, Eye, EyeOff, ArrowRight, ArrowLeft } from 'lucide-react';
+
+// A custom hook to track mouse position for the shine effect
+const useMousePosition = () => {
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+
+  useEffect(() => {
+    const updateMousePosition = (ev) => {
+      setMousePosition({ x: ev.clientX, y: ev.clientY });
+    };
+    window.addEventListener('mousemove', updateMousePosition);
+    return () => {
+      window.removeEventListener('mousemove', updateMousePosition);
+    };
+  }, []);
+
+  return mousePosition;
+};
 
 export default function Homepage() {
-  const handleStart = () => {
-    alert("Moving to the main application...");
+  // --- LOGIC (UNCHANGED) ---
+  const [view, setView] = useState('welcome');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const handleCreateVaultClick = () => setView('create');
+  const handleBackToWelcome = () => setView('welcome');
+
+  const handleFormSubmit = (e) => {
+    e.preventDefault();
+    alert("Form submitted! (Next step: IPC integration)");
   };
+  
+  // --- MOUSE TRACKING FOR UI EFFECT ---
+  const { x, y } = useMousePosition();
+  const cardRef = useRef(null);
+  
+  const cardStyle = cardRef.current ? {
+      '--mouse-x': `${x - cardRef.current.getBoundingClientRect().left}px`,
+      '--mouse-y': `${y - cardRef.current.getBoundingClientRect().top}px`,
+  } : {};
 
   return (
-    <main className="h-screen w-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center p-4 overflow-hidden relative">
-      {/* Floating animated blobs */}
-      <div className="absolute top-[-120px] left-[-150px] w-[400px] h-[400px] bg-green-500/30 rounded-full animate-blob animation-delay-2000"></div>
-      <div className="absolute bottom-[-150px] right-[-100px] w-[500px] h-[500px] bg-blue-500/30 rounded-full animate-blob animation-delay-4000"></div>
-      <div className="absolute top-1/2 left-1/2 w-[600px] h-[600px] bg-purple-500/20 rounded-full animate-blob animation-delay-6000"></div>
-
-      {/* Particle background */}
-      <div className="absolute inset-0 pointer-events-none">
-        {Array.from({ length: 50 }).map((_, i) => (
-          <div
-            key={i}
-            className="absolute bg-white/20 rounded-full animate-pulse-slow"
-            style={{
-              width: `${Math.random() * 6 + 2}px`,
-              height: `${Math.random() * 6 + 2}px`,
-              top: `${Math.random() * 100}%`,
-              left: `${Math.random() * 100}%`,
-              animationDuration: `${Math.random() * 5 + 3}s`,
-            }}
-          ></div>
-        ))}
+    <main className="h-screen w-screen bg-[#111319] flex items-center justify-center p-4 overflow-hidden relative font-sans text-white">
+      {/* --- Animated Grid Background --- */}
+      <div className="absolute inset-0 z-0 h-full w-full">
+        <div className="absolute inset-0 h-full w-full bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:3rem_3rem] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_0%,#000_70%,transparent_110%)]"></div>
       </div>
+      
+      {/* --- Main Panel --- */}
+      <div
+        ref={cardRef}
+        style={cardStyle}
+        className="card-shine-effect relative z-10 w-full max-w-md overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/80 p-8 md:p-12 shadow-2xl transition-all duration-500"
+      >
+        {/* We add a `key` here to force React to re-render the div on view change, which re-triggers the CSS animation */}
+        <div key={view} className="animate-fade-in">
+          {/* == View 1: Welcome Screen == */}
+          {view === 'welcome' && (
+            <div className="text-center">
+              <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-blue-600/10 ring-2 ring-blue-500/50">
+                  <ShieldCheck size={40} className="text-blue-400" />
+              </div>
+              <h1 className="text-4xl font-bold tracking-tight mb-3">FileRakshak</h1>
+              <p className="text-slate-400 text-lg mb-10">
+                The last file vault you'll ever need. Secure, simple, and yours.
+              </p>
+              <div className="flex flex-col gap-4">
+                  <button onClick={handleCreateVaultClick} className="action-button primary-button">
+                      <span className="flex items-center justify-center gap-2">Create New Vault <ArrowRight size={18}/></span>
+                  </button>
+                  <button className="action-button secondary-button">
+                      <span className="flex items-center justify-center gap-2">Open Existing Vault</span>
+                  </button>
+              </div>
+            </div>
+          )}
 
-      <div className="relative z-10 text-center p-12 bg-gray-800/40 rounded-3xl shadow-2xl border border-gray-700/50 backdrop-blur-xl max-w-lg mx-auto">
-        
-        {/* Animated App Icon */}
-        <ShieldCheck 
-          size={80} 
-          className="mx-auto text-green-400 mb-6 animate-bounce-slow hover:scale-110 transition-transform duration-500"
-        />
-
-        {/* App Name with gradient animation */}
-        <h1 className="text-5xl md:text-6xl font-bold tracking-wider font-serif bg-clip-text text-transparent bg-gradient-to-r from-green-300 via-blue-400 to-purple-400 mb-4 animate-text-gradient">
-          Filerakshak
-        </h1>
-
-        {/* Description */}
-        <p className="text-gray-300 text-lg mb-10 animate-fade-in-up">
-          Centralized, secure, and full-flex application to manage your files efficiently.
-        </p>
-
-        {/* Start Button */}
-        <button
-          onClick={handleStart}
-          className="relative overflow-hidden bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white font-bold py-3 px-10 rounded-xl text-xl inline-flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-green-500/50 group"
-        >
-          <span className="absolute inset-0 bg-white/10 group-hover:bg-white/20 transition-all duration-300 rounded-xl"></span>
-          <span className="relative z-10 flex items-center">
-            Start <ArrowRight className="ml-3 w-6 h-6" />
-          </span>
-        </button>
+          {/* == View 2: Create Vault For == */}
+          {view === 'create' && (
+            <div>
+              <h2 className="text-3xl font-bold text-center text-white mb-8">Create Your Vault</h2>
+              <form onSubmit={handleFormSubmit} className="space-y-6">
+                <InputWrapper icon={<Lock size={18} />}>
+                  <input type={showPassword ? "text" : "password"} placeholder="Create Password" required className="input-field pr-10" />
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors">{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button>
+                </InputWrapper>
+                <InputWrapper icon={<Lock size={18} />}>
+                  <input type={showConfirmPassword ? "text" : "password"} placeholder="Confirm Password" required className="input-field pr-10" />
+                  <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors">{showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button>
+                </InputWrapper>
+                <InputWrapper icon={<HelpCircle size={18} />}>
+                  <select required className="input-field appearance-none">
+                    <option value="" className="bg-slate-800">Select a security question...</option>
+                    <option value="pet" className="bg-slate-800">What was your first pet's name?</option>
+                    <option value="city" className="bg-slate-800">In what city were you born?</option>
+                    <option value="mother" className="bg-slate-800">What is your mother's maiden name?</option>
+                  </select>
+                </InputWrapper>
+                <InputWrapper icon={<KeyRound size={18} />}>
+                  <input type="text" placeholder="Your Answer" required className="input-field" />
+                </InputWrapper>
+                <div className="flex gap-4 pt-4">
+                  <button onClick={handleBackToWelcome} className="action-button secondary-button">
+                    <span className="flex items-center justify-center gap-2"><ArrowLeft size={18} /> Back</span>
+                  </button>
+                  <button type="submit" className="action-button primary-button">
+                    <span className="flex items-center justify-center gap-2">Continue <ArrowRight size={18} /></span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+        </div>
       </div>
-
-      {/* Tailwind keyframes */}
+      
+      {/* --- Inline CSS for effects --- */}
       <style jsx>{`
-        @keyframes blob {
-          0%, 100% { transform: translate(0px, 0px) scale(1); }
-          33% { transform: translate(30px, -50px) scale(1.1); }
-          66% { transform: translate(-20px, 20px) scale(0.9); }
+        .card-shine-effect::before {
+            content: "";
+            position: absolute; left: 0; top: 0;
+            width: 100%; height: 100%;
+            background: radial-gradient(350px circle at var(--mouse-x) var(--mouse-y), rgba(0, 153, 255, 0.15), transparent 80%);
+            border-radius: inherit;
+            opacity: 0;
+            transition: opacity 0.3s;
         }
-
-        .animate-blob {
-          animation: blob 8s infinite;
+        .card-shine-effect:hover::before {
+            opacity: 1;
         }
-
-        .animation-delay-2000 { animation-delay: 2s; }
-        .animation-delay-4000 { animation-delay: 4s; }
-        .animation-delay-6000 { animation-delay: 6s; }
-
-        @keyframes pulse-slow {
-          0%, 100% { opacity: 0.3; }
-          50% { opacity: 0.7; }
+        .input-field {
+          background-color: transparent; border: 0;
+          border-bottom: 2px solid #334155; /* slate-700 */
+          width: 100%; padding: 10px 0 10px 40px; /* space for icon */
+          color: white;
+          transition: border-color 0.3s;
         }
-        .animate-pulse-slow {
-          animation: pulse-slow 4s infinite;
+        .input-field:focus {
+          outline: none;
+          border-color: #0ea5e9; /* sky-500 */
         }
-
-        @keyframes text-gradient {
-          0%, 100% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
+        
+        .action-button {
+          position: relative; width: 100%;
+          border-radius: 0.5rem; padding-top: 0.75rem; padding-bottom: 0.75rem;
+          font-size: 1.125rem; font-weight: 600;
+          transition: transform 0.2s, box-shadow 0.2s;
         }
-        .animate-text-gradient {
-          background-size: 200% 200%;
-          animation: text-gradient 5s ease infinite;
+        .action-button:hover {
+          transform: translateY(-2px);
         }
-
-        @keyframes bounce-slow {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-15px); }
+        .primary-button {
+          background-color: #2563eb; /* blue-600 */
+          color: white;
         }
-        .animate-bounce-slow {
-          animation: bounce-slow 2.5s infinite;
+        .primary-button:hover {
+          box-shadow: 0 0 20px rgba(37, 99, 235, 0.7);
+        }
+        .secondary-button {
+          background-color: #1e293b; /* slate-800 */
+          color: #cbd5e1; /* slate-300 */
+        }
+        .secondary-button:hover {
+          background-color: #334155; /* slate-700 */
+        }
+        
+        @keyframes fade-in {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fade-in 0.5s ease-out forwards;
         }
       `}</style>
     </main>
   );
 }
+
+// Helper component for form inputs with icons
+const InputWrapper = ({ children, icon }) => (
+    <div className="relative flex items-center">
+        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-500">{icon}</span>
+        {children}
+    </div>
+);
