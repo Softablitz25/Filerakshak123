@@ -1,3 +1,5 @@
+// CreateVaultScreen.jsx (Conflict Resolved)
+
 import React, { useState } from 'react';
 import { Lock, KeyRound, HelpCircle, Eye, EyeOff, ArrowRight, ArrowLeft } from 'lucide-react';
 
@@ -9,14 +11,12 @@ const InputWrapper = ({ children, icon }) => (
   </div>
 );
 
+// We are keeping the onFormSubmit prop to communicate with App.jsx
 export default function CreateVaultScreen({ onBackClick, onFormSubmit }) {
-  // State for each form field
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [securityQuestion, setSecurityQuestion] = useState('');
   const [securityAnswer, setSecurityAnswer] = useState('');
-  
-  // State for showing/hiding passwords
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -26,7 +26,12 @@ export default function CreateVaultScreen({ onBackClick, onFormSubmit }) {
       alert("Passwords do not match!");
       return;
     }
-    // Pass the collected data up to the App.jsx component
+
+    // 1. Password is sent to the backend using the IPC call
+    window.api.savePassword(password);
+    console.log("Password save request sent to the backend.");
+
+    // 2. App.jsx is notified that the form submission is complete
     onFormSubmit({ password, securityQuestion, securityAnswer });
   };
 
@@ -105,4 +110,3 @@ export default function CreateVaultScreen({ onBackClick, onFormSubmit }) {
     </div>
   );
 }
-

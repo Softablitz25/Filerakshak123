@@ -1,34 +1,36 @@
+// App.jsx (Conflict Resolved)
+
 import React, { useState } from 'react';
 import Layout from './components/Layout.jsx';
 import WelcomeScreen from './components/WelcomeScreen.jsx';
 import CreateVaultScreen from './components/CreateVaultScreen.jsx';
 import OpenVaultScreen from './components/OpenVaultScreen.jsx';
+// VaultPage ko sahi path se import kiya gaya hai
+import VaultPage from './components/vault/VaultPage.jsx'; 
 import './App.css';
 
 function App() {
-  // Yeh state batata hai ki kaun si screen dikhani hai
+  // 'vault' naam ka ek naya view add kiya gaya hai
   const [currentView, setCurrentView] = useState('welcome');
 
-  // --- Navigation Functions ---
   const handleGoToCreate = () => setCurrentView('create');
   const handleGoToOpen = () => setCurrentView('open');
   const handleGoBackToWelcome = () => setCurrentView('welcome');
 
-  // --- Form Submission Handlers ---
+  // Yeh function ab vault page par navigate karega
   const handleCreateVaultSubmit = (formData) => {
-    // Abhi ke liye, hum data ko alert karenge. Baad mein ise backend mein bhejenge.
     console.log("Creating new vault with data:", formData);
-    alert("Creating new vault... (Next step: IPC integration)");
+    // Password save ho gaya hai (CreateVaultScreen mein), ab bas view badalna hai
+    setCurrentView('vault');
   };
   
   const handleOpenVaultSubmit = (formData) => {
-    // Abhi ke liye, hum data ko alert karenge.
     console.log("Opening vault with data:", formData);
-    alert("Opening vault... (Next step: IPC integration)");
+    // Yahan hum password check karne ke baad vault par bhejenge (yeh future step hai)
+    alert("Password check karne ka logic yahan aayega.");
   };
 
   return (
-    // Layout component hamara common background aur card provide karta hai
     <Layout viewKey={currentView}>
       {/* Conditional rendering: currentView ke hisaab se sahi component dikhayein */}
       {currentView === 'welcome' && (
@@ -49,9 +51,12 @@ function App() {
           onFormSubmit={handleOpenVaultSubmit}
         />
       )}
+      {/* VaultPage ko dikhane ke liye yeh naya block add kiya gaya hai */}
+      {currentView === 'vault' && (
+        <VaultPage />
+      )}
     </Layout>
   );
 }
 
 export default App;
-
