@@ -1,32 +1,23 @@
-<<<<<<< Updated upstream
-import React from 'react';
-import HomePage from './components/Homepage';
-function App() {
-  return (
-    <div className="w-screen h-screen">
-      <HomePage />
-    </div>
-=======
-// App.jsx (Updated with Vault Navigation)
+// App.jsx (Conflict Resolved)
 
 import React, { useState } from 'react';
 import Layout from './components/Layout.jsx';
 import WelcomeScreen from './components/WelcomeScreen.jsx';
 import CreateVaultScreen from './components/CreateVaultScreen.jsx';
 import OpenVaultScreen from './components/OpenVaultScreen.jsx';
-// Step 2.1: VaultPage ko import karein
-import VaultPage from './components/voult/VaultPage.jsx';
+// VaultPage ko sahi path se import kiya gaya hai
+import VaultPage from './components/vault/VaultPage.jsx'; 
 import './App.css';
 
 function App() {
-  // 'vault' naam ka ek naya view add karein
+  // 'vault' naam ka ek naya view add kiya gaya hai
   const [currentView, setCurrentView] = useState('welcome');
 
   const handleGoToCreate = () => setCurrentView('create');
   const handleGoToOpen = () => setCurrentView('open');
   const handleGoBackToWelcome = () => setCurrentView('welcome');
 
-  // Step 2.2: Is function ko update karein
+  // Yeh function ab vault page par navigate karega
   const handleCreateVaultSubmit = (formData) => {
     console.log("Creating new vault with data:", formData);
     // Password save ho gaya hai (CreateVaultScreen mein), ab bas view badalna hai
@@ -41,6 +32,7 @@ function App() {
 
   return (
     <Layout viewKey={currentView}>
+      {/* Conditional rendering: currentView ke hisaab se sahi component dikhayein */}
       {currentView === 'welcome' && (
         <WelcomeScreen 
           onCreateClick={handleGoToCreate}
@@ -59,12 +51,11 @@ function App() {
           onFormSubmit={handleOpenVaultSubmit}
         />
       )}
-      {/* Step 2.3: VaultPage ko dikhane ke liye yeh naya block add karein */}
+      {/* VaultPage ko dikhane ke liye yeh naya block add kiya gaya hai */}
       {currentView === 'vault' && (
         <VaultPage />
       )}
     </Layout>
->>>>>>> Stashed changes
   );
 }
 
