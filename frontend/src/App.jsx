@@ -1,38 +1,41 @@
-// App.jsx (Conflict Resolved)
+// App.jsx (Corrected)
 
 import React, { useState } from 'react';
 import Layout from './components/Layout.jsx';
 import WelcomeScreen from './components/WelcomeScreen.jsx';
 import CreateVaultScreen from './components/CreateVaultScreen.jsx';
 import OpenVaultScreen from './components/OpenVaultScreen.jsx';
-// VaultPage ko sahi path se import kiya gaya hai
-import VaultPage from './components/vault/VaultPage.jsx'; 
+import VaultPage from './components/voult/VaultPage.jsx';
 import './App.css';
 
 function App() {
-  // 'vault' naam ka ek naya view add kiya gaya hai
   const [currentView, setCurrentView] = useState('welcome');
 
   const handleGoToCreate = () => setCurrentView('create');
   const handleGoToOpen = () => setCurrentView('open');
   const handleGoBackToWelcome = () => setCurrentView('welcome');
 
-  // Yeh function ab vault page par navigate karega
   const handleCreateVaultSubmit = (formData) => {
     console.log("Creating new vault with data:", formData);
-    // Password save ho gaya hai (CreateVaultScreen mein), ab bas view badalna hai
     setCurrentView('vault');
   };
   
   const handleOpenVaultSubmit = (formData) => {
     console.log("Opening vault with data:", formData);
-    // Yahan hum password check karne ke baad vault par bhejenge (yeh future step hai)
     alert("Password check karne ka logic yahan aayega.");
+    // Testing ke liye, password submit karne par vault khol dete hain
+    setCurrentView('vault'); 
   };
 
+  // --- YAHAN HAI SABSE IMPORTANT CHANGE ---
+  // Agar current view 'vault' hai, to VaultPage ko seedhe return karo, bina Layout ke.
+  if (currentView === 'vault') {
+    return <VaultPage />;
+  }
+
+  // Baaki sabhi views ('welcome', 'create', 'open') ke liye, Layout ka istemal karo.
   return (
     <Layout viewKey={currentView}>
-      {/* Conditional rendering: currentView ke hisaab se sahi component dikhayein */}
       {currentView === 'welcome' && (
         <WelcomeScreen 
           onCreateClick={handleGoToCreate}
@@ -51,10 +54,7 @@ function App() {
           onFormSubmit={handleOpenVaultSubmit}
         />
       )}
-      {/* VaultPage ko dikhane ke liye yeh naya block add kiya gaya hai */}
-      {currentView === 'vault' && (
-        <VaultPage />
-      )}
+      {/* VaultPage wala block yahan se hata diya gaya hai */}
     </Layout>
   );
 }
