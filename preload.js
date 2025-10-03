@@ -1,11 +1,18 @@
-// preload.js
+const { contextBridge, ipcRenderer } = require("electron");
 
-const { contextBridge, ipcRenderer } = require('electron');
+contextBridge.exposeInMainWorld("api", {
+  // Save password along with security question/answer
+  savePassword: (data) => ipcRenderer.send("save-password", data),
 
-// 'api' naam ka ek secure bridge bana rahe hain
-// Isse aapka React code Electron se safely baat kar payega
-contextBridge.exposeInMainWorld('api', {
-  // 'savePassword' naam ka ek function bana rahe hain
-  // Jab React se yeh call hoga, toh yeh 'save-password' naam ka message Electron ko bhejega
-  savePassword: (password) => ipcRenderer.send('save-password', password),
+  // Check if vault exists
+  vaultExists: () => ipcRenderer.invoke("vault-exists"),
+
+  // Verify password
+  checkPassword: (password) =>
+    new Promise((resolve) => {
+      ipcRenderer.once("password-check-result", (event, isMatch) => {
+        resolve(isMatch); // returns true if password matches, else false
+      });
+      ipcRenderer.send("check-password", password);
+    }),
 });
