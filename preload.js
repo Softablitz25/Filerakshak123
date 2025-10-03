@@ -1,18 +1,17 @@
+// preload.js (FINAL CODE)
+
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("api", {
-  // Save password along with security question/answer
+  // Password wale functions
   savePassword: (data) => ipcRenderer.send("save-password", data),
-
-  // Check if vault exists
   vaultExists: () => ipcRenderer.invoke("vault-exists"),
-
-  // Verify password
-  checkPassword: (password) =>
-    new Promise((resolve) => {
-      ipcRenderer.once("password-check-result", (event, isMatch) => {
-        resolve(isMatch); // returns true if password matches, else false
-      });
-      ipcRenderer.send("check-password", password);
-    }),
+  checkPassword: (password) => ipcRenderer.invoke("check-password", password),
+  
+  // Files wale saare functions
+  getVaultData: () => ipcRenderer.invoke('get-vault-data'),
+  uploadFile: () => ipcRenderer.invoke('upload-file'),
+  openFile: (filePath) => ipcRenderer.invoke('open-file', filePath),
+  exportFile: (file) => ipcRenderer.invoke('export-file', file),
+  deleteFile: (file) => ipcRenderer.invoke('delete-file', file)
 });
