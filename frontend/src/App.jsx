@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from './components/Layout.jsx';
 import WelcomeScreen from './components/WelcomeScreen.jsx';
 import CreateVaultScreen from './components/CreateVaultScreen.jsx';
@@ -8,32 +8,52 @@ import './App.css';
 
 function App() {
   const [currentView, setCurrentView] = useState('welcome');
+  const [loading, setLoading] = useState(true); // For initial vault check
 
   const handleGoToCreate = () => setCurrentView('create');
   const handleGoToOpen = () => setCurrentView('open');
   const handleGoBackToWelcome = () => setCurrentView('welcome');
   const handleLockVault = () => setCurrentView('welcome');
 
+  // 🔹 Auto-detect if vault exists
+  useEffect(() => {
+    const checkVault = async () => {
+      const exists = await window.api.vaultExists?.();
+      if (exists) setCurrentView('open');
+      else setCurrentView('create');
+      setLoading(false);
+    };
+    checkVault();
+  }, []);
+
+  // ✅ Create Vault
   const handleCreateVaultSubmit = (formData) => {
-    // This is where you will eventually call the backend
-    console.log("Creating new vault with data:", formData);
-    // For now, we go directly to the vault page on submission
+    // Only send password to backend for hashing
+    window.api.savePassword(formData.password);
+    console.log("Vault created (password saved).");
     setCurrentView('vault');
   };
-  
-  const handleOpenVaultSubmit = (formData) => {
-    // This is where you will eventually call the backend to check the password
-    console.log("Attempting to open vault with data:", formData);
-    // For now, we go directly to the vault page on submission
-    setCurrentView('vault'); 
+
+  // ✅ Open Vault
+  const handleOpenVaultSubmit = async (formData) => {
+    const isMatch = await window.api.checkPassword(formData.password);
+    if (isMatch) {
+      console.log("Vault unlocked successfully!");
+      setCurrentView('vault');
+    } else {
+      alert("❌ Incorrect password! Please try again.");
+    }
   };
 
-  // If the current view is the main vault, render it directly (full-screen)
+  // 🔹 Show nothing while checking vault existence
+  if (loading) return <div className="flex items-center justify-center h-screen text-white">Loading...</div>;
+
+  // 🔹 Vault screen full page
   if (currentView === 'vault') {
     return <VaultPage onLockVault={handleLockVault} />;
   }
 
-  // For all other views ('welcome', 'create', 'open'), use the centered card Layout
+  // 🔹 Other screens inside Layout card
   return (
     <Layout viewKey={currentView}>
       {currentView === 'welcome' && (
@@ -59,4 +79,3 @@ function App() {
 }
 
 export default App;
-

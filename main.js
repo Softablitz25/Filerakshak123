@@ -1,8 +1,9 @@
-// main.js
-
-// Step 2.1: 'ipcMain' ko yahan import karein
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
+const fs = require('fs');
+const bcrypt = require('bcryptjs');
+
+const PASSWORD_FILE = path.join(app.getPath('userData'), 'vault-password.json');
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -25,13 +26,35 @@ function createWindow() {
 
 app.whenReady().then(createWindow);
 
-// Step 2.2: Yeh naya code add karein jo password save karne ki request sunega
-ipcMain.on('save-password', (event, password) => {
-  console.log(`Password React se mil gaya hai: ${password}`);
-  // <<-- YAHAN PAR PASSWORD KO DATABASE YA FILE MEIN SAVE KARNE KA ASLI LOGIC LIKHA JAYEGA -->>
+// ✅ Save password (with optional security question/answer)
+ipcMain.on('save-password', (event, data) => {
+  const hashedPassword = bcrypt.hashSync(data.password, 10);
+  fs.writeFileSync(PASSWORD_FILE, JSON.stringify({
+    password: hashedPassword,
+    securityQuestion: data.securityQuestion || '',
+    securityAnswer: data.securityAnswer || ''
+  }));
+  console.log("Password saved securely!");
+  event.reply('password-saved', true);
 });
 
+// ✅ Vault existence check
+ipcMain.handle('vault-exists', () => {
+  return fs.existsSync(PASSWORD_FILE);
+});
 
+// ✅ Check password
+ipcMain.on('check-password', (event, password) => {
+  if (!fs.existsSync(PASSWORD_FILE)) {
+    event.reply('password-check-result', false);
+    return;
+  }
+  const savedData = JSON.parse(fs.readFileSync(PASSWORD_FILE, 'utf-8'));
+  const isMatch = bcrypt.compareSync(password, savedData.password);
+  event.reply('password-check-result', isMatch);
+});
+
+// Close events
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
