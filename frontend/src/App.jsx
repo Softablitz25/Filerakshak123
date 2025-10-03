@@ -1,5 +1,3 @@
-// App.jsx (Corrected)
-
 import React, { useState } from 'react';
 import Layout from './components/Layout.jsx';
 import WelcomeScreen from './components/WelcomeScreen.jsx';
@@ -14,26 +12,28 @@ function App() {
   const handleGoToCreate = () => setCurrentView('create');
   const handleGoToOpen = () => setCurrentView('open');
   const handleGoBackToWelcome = () => setCurrentView('welcome');
+  const handleLockVault = () => setCurrentView('welcome');
 
   const handleCreateVaultSubmit = (formData) => {
+    // This is where you will eventually call the backend
     console.log("Creating new vault with data:", formData);
+    // For now, we go directly to the vault page on submission
     setCurrentView('vault');
   };
   
   const handleOpenVaultSubmit = (formData) => {
-    console.log("Opening vault with data:", formData);
-    alert("Password check karne ka logic yahan aayega.");
-    // Testing ke liye, password submit karne par vault khol dete hain
+    // This is where you will eventually call the backend to check the password
+    console.log("Attempting to open vault with data:", formData);
+    // For now, we go directly to the vault page on submission
     setCurrentView('vault'); 
   };
 
-  // --- YAHAN HAI SABSE IMPORTANT CHANGE ---
-  // Agar current view 'vault' hai, to VaultPage ko seedhe return karo, bina Layout ke.
+  // If the current view is the main vault, render it directly (full-screen)
   if (currentView === 'vault') {
-    return <VaultPage />;
+    return <VaultPage onLockVault={handleLockVault} />;
   }
 
-  // Baaki sabhi views ('welcome', 'create', 'open') ke liye, Layout ka istemal karo.
+  // For all other views ('welcome', 'create', 'open'), use the centered card Layout
   return (
     <Layout viewKey={currentView}>
       {currentView === 'welcome' && (
@@ -54,9 +54,9 @@ function App() {
           onFormSubmit={handleOpenVaultSubmit}
         />
       )}
-      {/* VaultPage wala block yahan se hata diya gaya hai */}
     </Layout>
   );
 }
 
 export default App;
+
