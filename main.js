@@ -51,82 +51,100 @@ ipcMain.handle('vault-exists', () => {
   return fs.existsSync(vaultConfigPath);
 });
 
-// ✅ Sahi Password Check (hang nahi hoga)
 ipcMain.handle('check-password', (event, password) => {
   if (!fs.existsSync(vaultConfigPath)) return false;
   const savedData = JSON.parse(fs.readFileSync(vaultConfigPath, 'utf-8'));
   return bcrypt.compareSync(password, savedData.password);
 });
 
-// ✅ File Data Dena
 ipcMain.handle('get-vault-data', () => {
   return readVaultData();
 });
 
-// main.js
-
-// Sets up a listener for the 'upload-file' event from the frontend.
-ipcMain.handle('upload-file', async (event, { parentId }) => {
-  // 1. Open the native file selection dialog for the user.
-  const { canceled, filePaths } = await dialog.showOpenDialog({ 
-    properties: ['openFile', 'multiSelections'] 
+// ✅ FINAL 'upload-file' handler with strict type checking
+ipcMain.handle('upload-file', async (event, { parentId, category }) => {
+  const { canceled, filePaths } = await dialog.showOpenDialog({
+    properties: ['openFile', 'multiSelections']
   });
-  
-  // If the user cancels, stop the process.
+
   if (canceled || filePaths.length === 0) {
-    return { success: false };
+    return { success: false, message: "No files selected." };
   }
 
-  // Load the current vault database (JSON file) into memory.
   const vaultData = readVaultData();
-  
-  // Process each file the user selected.
+  let addedCount = 0;
+  let skippedCount = 0;
+
   for (const filePath of filePaths) {
     const fileName = path.basename(filePath);
-    const destinationPath = path.join(vaultStoragePath, fileName);
+    const extension = path.extname(fileName).substring(1).toLowerCase();
 
-    // Prevent overwriting by skipping files that already exist in the vault.
+    // --- STRICT TYPE CHECKING LOGIC ---
+    const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(extension);
+    const isPdf = extension === 'pdf';
+
+    let canUpload = false;
+    if (category === "Photos" && isImage) {
+      canUpload = true;
+    } else if (category === "PDFs" && isPdf) {
+      canUpload = true;
+    } else if (category === "Other Files" && !isImage && !isPdf) {
+      canUpload = true;
+    }
+
+    if (!canUpload) {
+      console.log(`Skipping file: ${fileName}. Type does not match category "${category}".`);
+      skippedCount++;
+      continue; // Skip to the next file
+    }
+    // --- END OF LOGIC ---
+
+    const destinationPath = path.join(vaultStoragePath, fileName);
     if (fs.existsSync(destinationPath)) {
-        console.log(`Skipping duplicate file: ${fileName}`);
-        continue;
+      console.log(`Skipping duplicate file: ${fileName}`);
+      skippedCount++;
+      continue;
     }
     
-    // 2. Physically MOVE the file from its original location to the app's secure folder.
     fs.renameSync(filePath, destinationPath);
+    addedCount++;
 
     const stats = fs.statSync(destinationPath);
-    
-    // 3. Create a logical record (a "library card") for the file to be saved in the JSON database.
     const fileDetails = {
       id: `file-${Date.now()}-${Math.random()}`,
       type: 'file',
       name: fileName,
-      path: destinationPath, // The actual path for opening the file later.
+      path: destinationPath,
       size: `${(stats.size / (1024 * 1024)).toFixed(2)} MB`,
-      // This links the file to the virtual folder the user is currently in.
-      parentId: parentId, 
+      parentId: parentId,
     };
     
-    // Automatically determine which category the file belongs to based on its extension.
-    const extension = fileName.split('.').pop().toLowerCase();
-    let targetCategory = "Other Files";
-    if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(extension)) {
-      targetCategory = "Photos";
-    } else if (extension === 'pdf') {
-      targetCategory = "PDFs";
+    if (vaultData[category]) {
+        vaultData[category].push(fileDetails);
+    } else {
+        console.error(`Error: Category "${category}" does not exist.`);
+        vaultData["Other Files"].push(fileDetails); // Fallback
     }
-
-    // Add the new file record to the appropriate category in our in-memory data.
-    vaultData[targetCategory].push(fileDetails);
   }
 
-  // 4. Save all the changes back to the vault-data.json file on the disk.
   writeVaultData(vaultData);
+
+  let message = "";
+  if (addedCount > 0) {
+    message += `${addedCount} file(s) added successfully.`;
+  }
+  if (skippedCount > 0) {
+    message += ` ${skippedCount} file(s) were skipped due to wrong category or being a duplicate.`;
+  }
+
+  if(addedCount === 0 && skippedCount > 0) {
+    return { success: false, message: `No files were added. ${skippedCount} file(s) were skipped.` };
+  }
   
-  return { success: true };
+  return { success: true, message: message.trim() };
 });
 
-// ✅ File Open karna
+
 ipcMain.handle('open-file', async (event, filePath) => {
   if (filePath && filePath.startsWith(vaultStoragePath)) {
     const error = await shell.openPath(filePath);
@@ -135,13 +153,12 @@ ipcMain.handle('open-file', async (event, filePath) => {
   }
   return { success: false, message: "Security Error." };
 });
-// ✅ File/Folder Rename karna (Updated to use ID)
+
 ipcMain.handle('rename-file', async (event, itemToRename, newName) => {
   try {
     const vaultData = readVaultData();
     let itemUpdated = false;
 
-    // Sirf file hone par hi disk par rename karein
     if (itemToRename.type === 'file') {
       const dir = path.dirname(itemToRename.path);
       const newPath = path.join(dir, newName);
@@ -151,17 +168,16 @@ ipcMain.handle('rename-file', async (event, itemToRename, newName) => {
       }
       fs.renameSync(itemToRename.path, newPath);
 
-      // JSON mein path bhi update karna zaroori hai
       for (const cat in vaultData) {
         const item = vaultData[cat].find(i => i.id === itemToRename.id);
         if (item) {
           item.name = newName;
-          item.path = newPath; // Path bhi update karein
+          item.path = newPath;
           itemUpdated = true;
           break;
         }
       }
-    } else { // Agar folder hai, to sirf JSON mein naam badlein
+    } else {
       for (const cat in vaultData) {
         const item = vaultData[cat].find(i => i.id === itemToRename.id);
         if (item) {
@@ -184,83 +200,65 @@ ipcMain.handle('rename-file', async (event, itemToRename, newName) => {
   }
 });
 
-// ✅ File Export karna (aur app se delete karna)
 ipcMain.handle('export-file', async (event, file) => {
   const { filePath } = await dialog.showSaveDialog({ title: 'Export File', defaultPath: file.name });
   if (filePath) {
     try {
-      fs.copyFileSync(file.path, filePath); // Pehle file ko copy karo
-
-      // Ab app se delete karo
+      fs.copyFileSync(file.path, filePath);
       fs.unlinkSync(file.path); 
       const vaultData = readVaultData();
       Object.keys(vaultData).forEach(cat => {
-        vaultData[cat] = vaultData[cat].filter(f => f.path !== file.path);
+        vaultData[cat] = vaultData[cat].filter(f => f.id !== file.id);
       });
       writeVaultData(vaultData);
-
       return { success: true };
     } catch (error) {
-      return { success: false, message: 'Failed to export file.' };
+      console.error('File export failed:', error);
+      return { success: false, message: 'Failed to export and remove file.' };
     }
   }
   return { success: false, message: 'Export cancelled.' };
 });
 
-// ✅ File Delete karna
-ipcMain.handle('delete-file', (event, file) => {
-  const choice = dialog.showMessageBoxSync({
-    type: 'warning',
-    buttons: ['Cancel', 'Delete'],
-    defaultId: 0,
-    title: 'Delete File',
-    message: `Are you sure you want to permanently delete "${file.name}"?`
-  });
-
-  if (choice === 1) { // 1 means 'Delete'
-    fs.unlinkSync(file.path);
-    const vaultData = readVaultData();
-    Object.keys(vaultData).forEach(cat => {
-      vaultData[cat] = vaultData[cat].filter(f => f.path !== file.path);
-    });
-    writeVaultData(vaultData);
-    return { success: true };
-  }
-  return { success: false };
-});
-// Handles the 'create-folder' event from the frontend.
 ipcMain.handle('create-folder', (event, { category, folderName, parentId }) => {
-  // 1. Validate the folder name to ensure it's not empty.
   if (!folderName || folderName.trim() === '') {
     return { success: false, message: 'Folder name cannot be empty.' };
   }
-
-  // Load the current vault database into memory.
   const vaultData = readVaultData();
-
-  // 2. Check if a folder or file with the same name already exists in the current location.
   const nameExists = vaultData[category].some(item => 
     item.parentId === parentId && item.name === folderName
   );
   if (nameExists) {
     return { success: false, message: `An item named "${folderName}" already exists here.` };
   }
-
-  // 3. Create the new virtual folder's record.
   const newFolder = {
-    id: `folder-${Date.now()}`, // A unique ID for this folder.
+    id: `folder-${Date.now()}`,
     type: 'folder',
     name: folderName,
-    parentId: parentId, // Links this folder to its parent (a category or another folder).
+    parentId: parentId,
   };
-
-  // Add the new folder record to the correct category.
   vaultData[category].push(newFolder);
-  
-  // 4. Save the updated data back to the vault-data.json file.
   writeVaultData(vaultData);
-
   return { success: true, newFolder };
+});
+
+ipcMain.handle('get-file-as-data-url', async (event, filePath) => {
+  try {
+    const fileData = fs.readFileSync(filePath);
+    const fileExtension = path.extname(filePath).substring(1).toLowerCase();
+    let mimeType = 'application/octet-stream';
+    
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(fileExtension)) {
+      mimeType = `image/${fileExtension}`;
+    } else if (fileExtension === 'pdf') {
+        mimeType = 'application/pdf';
+    }
+    
+    return `data:${mimeType};base64,${fileData.toString('base64')}`;
+  } catch (error) {
+    console.error("Error reading file for data URL:", error);
+    return null;
+  }
 });
 
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });

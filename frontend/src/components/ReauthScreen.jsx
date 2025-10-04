@@ -1,7 +1,7 @@
-// frontend/src/components/OpenVaultScreen.jsx
+// frontend/src/components/ReauthScreen.jsx
 
 import React, { useState, useEffect } from 'react';
-import { Lock, Eye, EyeOff, ArrowRight, ArrowLeft, ShieldAlert } from 'lucide-react';
+import { Lock, Eye, EyeOff, ArrowRight, ShieldX, ShieldAlert } from 'lucide-react';
 
 const InputWrapper = ({ children, icon }) => (
   <div className="relative flex items-center">
@@ -10,13 +10,13 @@ const InputWrapper = ({ children, icon }) => (
   </div>
 );
 
-export default function OpenVaultScreen({ onBackClick, onFormSubmit }) {
+export default function ReauthScreen({ onFormSubmit, onFullLock }) {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [attempts, setAttempts] = useState(0);
   const [isLocked, setIsLocked] = useState(false);
   const [lockoutTimer, setLockoutTimer] = useState(0);
-  const [error, setError] = useState(''); // ✅ Naya state error message ke liye
+  const [error, setError] = useState('');
   const MAX_ATTEMPTS = 3;
 
   useEffect(() => {
@@ -26,7 +26,7 @@ export default function OpenVaultScreen({ onBackClick, onFormSubmit }) {
     } else if (lockoutTimer === 0 && isLocked) {
       setIsLocked(false);
       setAttempts(0);
-      setError(''); // Lockout khatam hone par error message saaf karein
+      setError('');
     }
     return () => clearInterval(timer);
   }, [isLocked, lockoutTimer]);
@@ -34,7 +34,7 @@ export default function OpenVaultScreen({ onBackClick, onFormSubmit }) {
   const handlePasswordChange = (e) => {
     setPassword(e.target.value);
     if (error) {
-      setError(''); // User jaise hi type karna shuru kare, error hata dein
+      setError('');
     }
   };
 
@@ -45,6 +45,7 @@ export default function OpenVaultScreen({ onBackClick, onFormSubmit }) {
     const isMatch = await window.api.checkPassword(password);
 
     if (isMatch) {
+      // Password sahi hone par onFormSubmit ko call karein (bina data ke)
       onFormSubmit();
     } else {
       const newAttempts = attempts + 1;
@@ -63,7 +64,9 @@ export default function OpenVaultScreen({ onBackClick, onFormSubmit }) {
 
   return (
     <div>
-      <h2 className="text-3xl font-bold text-center text-white mb-8">Open Your Vault</h2>
+      <h2 className="text-3xl font-bold text-center text-white mb-2">Vault Locked</h2>
+      <p className="text-slate-400 text-center mb-8">Enter your password to unlock again.</p>
+      
       {isLocked ? (
         <div className="text-center p-4 rounded-lg bg-red-900/50 border border-red-500">
           <ShieldAlert className="mx-auto mb-2 text-red-400" size={32} />
@@ -76,7 +79,7 @@ export default function OpenVaultScreen({ onBackClick, onFormSubmit }) {
             <InputWrapper icon={<Lock size={18} />}>
               <input 
                 value={password}
-                onChange={handlePasswordChange} // ✅ Yahan naya function use ho raha hai
+                onChange={handlePasswordChange}
                 type={showPassword ? "text" : "password"}
                 placeholder="Enter Password" 
                 required
@@ -87,16 +90,15 @@ export default function OpenVaultScreen({ onBackClick, onFormSubmit }) {
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </InputWrapper>
-            {/* ✅ Error message yahan dikhega */}
             {error && <p className="text-red-400 text-sm mt-2 text-center">{error}</p>}
           </div>
 
-          <div className="flex gap-4 pt-4">
-            <button type="button" onClick={onBackClick} className="action-button secondary-button">
-              <span className="flex items-center justify-center gap-2"><ArrowLeft size={18} /> Back</span>
-            </button>
+          <div className="flex flex-col gap-4 pt-4">
             <button type="submit" className="action-button primary-button">
-              <span className="flex items-center justify-center gap-2">Unlock Vault <ArrowRight size={18} /></span>
+              <span className="flex items-center justify-center gap-2">Unlock <ArrowRight size={18} /></span>
+            </button>
+            <button type="button" onClick={onFullLock} className="action-button secondary-button">
+              <span className="flex items-center justify-center gap-2">Lock & Exit Completely <ShieldX size={18} /></span>
             </button>
           </div>
         </form>
