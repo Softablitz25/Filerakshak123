@@ -7,6 +7,7 @@ import CreateVaultScreen from './components/CreateVaultScreen.jsx';
 import OpenVaultScreen from './components/OpenVaultScreen.jsx';
 import VaultPage from './components/voult/VaultPage.jsx';
 import ReauthScreen from './components/ReauthScreen.jsx';
+import ForgotPasswordScreen from './components/ForgotPasswordScreen.jsx';
 import './App.css';
 
 function App() {
@@ -18,6 +19,7 @@ function App() {
   const handleGoBackToWelcome = () => setCurrentView('welcome');
   const handleLockVault = () => setCurrentView('reauth'); 
   const handleFullLock = () => setCurrentView('welcome');
+  const handleGoToForgotPassword = () => setCurrentView('forgotPassword');
 
   useEffect(() => {
     const checkVault = async () => {
@@ -37,8 +39,6 @@ function App() {
     console.log("Vault created (password saved).");
     setCurrentView('vault');
   };
-
-  // ✅ FIX: Ab yeh function sirf vault kholne ka kaam karega
   // Password check ki zimmedari OpenVaultScreen ki hogi
   const handleOpenVaultSubmit = () => {
     console.log("Vault unlocked successfully!");
@@ -81,7 +81,9 @@ function App() {
         <OpenVaultScreen 
           onBackClick={handleGoBackToWelcome}
           onFormSubmit={handleOpenVaultSubmit}
+           onForgotPasswordClick={handleGoToForgotPassword} 
         />
+        
       )}
       {currentView === 'reauth' && (
         <ReauthScreen 
@@ -89,6 +91,13 @@ function App() {
           onFullLock={handleFullLock}
         />
       )}
+            {currentView === 'forgotPassword' && (
+        <ForgotPasswordScreen
+          onResetSuccess={handleGoToOpen} 
+          onBackClick={handleGoToOpen}    
+        />
+      )}
+
     </Layout>
   );
 }

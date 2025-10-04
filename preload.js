@@ -17,5 +17,10 @@ contextBridge.exposeInMainWorld("api", {
   renameFile: (file, newName) => ipcRenderer.invoke('rename-file', file, newName),
   
   // File preview ke liye function
-  getFileAsDataUrl: (filePath) => ipcRenderer.invoke('get-file-as-data-url', filePath)
+  getFileAsDataUrl: (filePath) => ipcRenderer.invoke('get-file-as-data-url', filePath),
+
+   // --- PASSWORD RECOVERY FUNCTIONS (These were missing) ---
+  getSecurityQuestion: () => ipcRenderer.invoke('get-security-question'),
+  verifyAnswer: (answer) => ipcRenderer.invoke('verify-answer', answer),
+  resetPassword: (newPassword) => ipcRenderer.invoke('reset-password', newPassword),
 });
