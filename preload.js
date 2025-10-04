@@ -13,5 +13,6 @@ contextBridge.exposeInMainWorld("api", {
   uploadFile: () => ipcRenderer.invoke('upload-file'),
   openFile: (filePath) => ipcRenderer.invoke('open-file', filePath),
   exportFile: (file) => ipcRenderer.invoke('export-file', file),
-  deleteFile: (file) => ipcRenderer.invoke('delete-file', file)
+  deleteFile: (file) => ipcRenderer.invoke('delete-file', file),
+  renameFile: (file, newName) => ipcRenderer.invoke('rename-file', file, newName)
 });

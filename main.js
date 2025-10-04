@@ -1,5 +1,3 @@
-// main.js (FINAL and CORRECTED Code)
-
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -104,6 +102,51 @@ ipcMain.handle('open-file', async (event, filePath) => {
     return { success: true };
   }
   return { success: false, message: "Security Error." };
+});
+// ipc handle for renaming a file
+// ✅ File Rename karna (FINAL CODE)
+ipcMain.handle('rename-file', async (event, file, newName) => {
+  try {
+    const dir = path.dirname(file.path);
+    const newPath = path.join(dir, newName);
+
+    // 1. Check karein ki naye naam se file pehle se मौजूद to nahi hai
+    if (fs.existsSync(newPath)) {
+      return { success: false, message: 'A file with that name already exists.' };
+    }
+
+    // 2. Asli file ko disk par rename karein
+    fs.renameSync(file.path, newPath);
+
+    // 3. vault-data.json mein record update karein
+    const vaultData = readVaultData();
+    let fileUpdated = false;
+
+    for (const cat in vaultData) {
+      // Sahi file ko uske purane path se dhundein
+      const fileIndex = vaultData[cat].findIndex(f => f.path === file.path);
+      
+      if (fileIndex !== -1) {
+        // File milne par uska naam aur path update karein
+        vaultData[cat][fileIndex].name = newName;
+        vaultData[cat][fileIndex].path = newPath;
+        fileUpdated = true;
+        break; // Loop se bahar aa jayein
+      }
+    }
+
+    if (fileUpdated) {
+      writeVaultData(vaultData);
+      return { success: true };
+    } else {
+      // Agar kisi wajah se JSON mein file na mile (bahut rare case)
+      return { success: false, message: 'File record not found in the database.' };
+    }
+
+  } catch (error) {
+    console.error('File rename failed:', error);
+    return { success: false, message: 'Could not rename the file on the disk.' };
+  }
 });
 
 // ✅ File Export karna (aur app se delete karna)

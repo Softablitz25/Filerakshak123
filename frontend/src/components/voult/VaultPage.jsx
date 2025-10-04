@@ -3,15 +3,17 @@
 import React, { useState, useEffect } from "react";
 import {
   ShieldCheck, Image, FileText, FileArchive, UploadCloud, File, X,
-  Search, LayoutGrid, LogOut, MoreVertical, ArrowUpFromLine, FolderPlus
+  Search, LayoutGrid, LogOut, MoreVertical, ArrowUpFromLine, FolderPlus, FileEdit
 } from "lucide-react";
 import CreateFolderModal from './CreateFolderModal';
-
+import RenameModal from "./RenameModal";
 export default function VaultPage({ onLockVault }) {
   const [activeCategory, setActiveCategory] = useState("Photos");
   const [openMenuIndex, setOpenMenuIndex] = useState(null);
   const [files, setFiles] = useState({ Photos: [], PDFs: [], "Other Files": [] });
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
+  const [fileToRename, setFileToRename] = useState(null);
 
   useEffect(() => {
     const loadVaultData = async () => {
@@ -47,7 +49,7 @@ export default function VaultPage({ onLockVault }) {
     event.stopPropagation();
     setOpenMenuIndex(openMenuIndex === index ? null : index);
   };
-  
+
   const handleExport = async (file, event) => {
     event.stopPropagation();
     setOpenMenuIndex(null);
@@ -72,16 +74,43 @@ export default function VaultPage({ onLockVault }) {
     }
   };
 
+  const handleRenameClick = (file, event) => {
+    event.stopPropagation();
+    setOpenMenuIndex(null);
+    setFileToRename(file);
+    setIsRenameModalOpen(true);
+  };
+  const submitRename = async (newName) => {
+    if (newName && fileToRename && newName.trim() !== "" && newName !== fileToRename.name) {
+      const result = await window.api.renameFile(fileToRename, newName);
+      if (result.success) {
+        alert(`File renamed to "${newName}"`);
+        const data = await window.api.getVaultData(); // List ko refresh karein
+        if (data) setFiles(data);
+      } else {
+        alert(`Error renaming file: ${result.message}`);
+      }
+    }
+    setIsRenameModalOpen(false); // Modal band karein
+    setFileToRename(null);
+  };
+
   return (
     <div className="flex h-screen w-screen bg-slate-950 text-white font-sans overflow-hidden" onClick={() => setOpenMenuIndex(null)}>
       <CreateFolderModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+      <RenameModal
+        isOpen={isRenameModalOpen}
+        onClose={() => setIsRenameModalOpen(false)}
+        onSubmit={submitRename}
+        currentName={fileToRename ? fileToRename.name : ''}
+      />
       {/* Sidebar */}
       <aside className="w-64 flex-shrink-0 bg-slate-900/70 border-r border-slate-800 p-6 flex-col hidden md:flex">
         <div className="flex items-center gap-3 mb-10"><ShieldCheck size={32} className="text-green-400" /><h1 className="text-2xl font-bold tracking-wide">FileRakshak</h1></div>
         <h3 className="text-sm uppercase text-slate-400 mb-4 tracking-wider">Categories</h3>
         <div className="flex flex-col gap-2">
           {categories.map(({ name, icon: Icon, color }) => (
-            <button key={name} onClick={() => setActiveCategory(name)} className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg text-left transition-all duration-200 ${ activeCategory === name ? "bg-blue-600/30 text-white border border-blue-500 shadow-md" : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200" }`}><Icon size={20} className={color} /><span className="font-medium">{name}</span></button>
+            <button key={name} onClick={() => setActiveCategory(name)} className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg text-left transition-all duration-200 ${activeCategory === name ? "bg-blue-600/30 text-white border border-blue-500 shadow-md" : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"}`}><Icon size={20} className={color} /><span className="font-medium">{name}</span></button>
           ))}
         </div>
       </aside>
@@ -107,10 +136,33 @@ export default function VaultPage({ onLockVault }) {
                   <div className="relative">
                     <button onClick={(e) => handleMenuClick(index, e)} className="p-1 rounded-full text-slate-500 hover:text-white hover:bg-slate-700 transition-colors"><MoreVertical size={18} /></button>
                     {openMenuIndex === index && (
-                      <div className="absolute top-8 right-0 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-10 w-40 overflow-hidden">
-                        <button onClick={(e) => handleExport(file, e)} className="flex items-center gap-3 w-full text-left px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-700/50"><ArrowUpFromLine size={16} /> Export File</button>
-                        <button onClick={(e) => handleDelete(file, e)} className="flex items-center gap-3 w-full text-left px-4 py-2.5 text-sm text-red-400 hover:bg-slate-700/50"><X size={16} /> Delete File</button>
+                      <div className="absolute right-0 mt-2 w-44 rounded-lg bg-slate-800 shadow-lg border border-slate-700">
+                        <button
+                          onClick={(e) => handleRenameClick(file, e)}
+                          className="flex items-center gap-2 w-full px-3 py-2 text-sm text-slate-300 hover:bg-slate-700/70 rounded-md transition"
+                        >
+                          <FileEdit size={16} className="text-blue-400" />
+                          <span>Rename</span>
+                        </button>
+
+                        <button
+                          onClick={(e) => handleExport(file, e)}
+                          className="flex items-center gap-2 w-full px-3 py-2 text-sm text-slate-300 hover:bg-slate-700/70 rounded-md transition"
+                        >
+                          <ArrowUpFromLine size={16} className="text-green-400" />
+                          <span>Export File</span>
+                        </button>
+
+                        <button
+                          onClick={(e) => handleDelete(file, e)}
+                          className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-400 hover:bg-slate-700/70 rounded-md transition"
+                        >
+                          <X size={16} className="text-red-400" />
+                          <span>Delete File</span>
+                        </button>
                       </div>
+
+
                     )}
                   </div>
                 </div>
