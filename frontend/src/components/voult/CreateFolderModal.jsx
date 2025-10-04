@@ -1,19 +1,24 @@
-// CreateFolderModal.jsx (UPDATED)
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, FolderPlus } from 'lucide-react';
 
-export default function CreateFolderModal({ isOpen, onClose, onCreate }) {
+export default function CreateFolderModal({ isOpen, onClose, onSubmit }) {
   const [folderName, setFolderName] = useState('');
+
+  // This ensures the input is empty every time the modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setFolderName('');
+    }
+  }, [isOpen]);
 
   if (!isOpen) {
     return null;
   }
 
-  const handleCreate = () => {
+  const handleSubmit = () => {
     if (folderName.trim()) {
-      onCreate(folderName.trim());
-      setFolderName(''); // Input ko clear karo
+      // It now correctly calls the 'onSubmit' prop
+      onSubmit(folderName.trim());
     }
   };
 
@@ -40,13 +45,14 @@ export default function CreateFolderModal({ isOpen, onClose, onCreate }) {
             onChange={(e) => setFolderName(e.target.value)}
             placeholder="e.g., Family Trip"
             className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            autoFocus
           />
         </div>
         <div className="flex justify-end gap-4 mt-6">
           <button onClick={onClose} className="px-6 py-2 rounded-lg bg-gray-600 hover:bg-gray-500 text-white font-semibold">
             Cancel
           </button>
-          <button onClick={handleCreate} className="px-6 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold">
+          <button onClick={handleSubmit} className="px-6 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold">
             Create
           </button>
         </div>

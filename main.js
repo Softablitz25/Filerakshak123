@@ -63,34 +63,66 @@ ipcMain.handle('get-vault-data', () => {
   return readVaultData();
 });
 
-// ✅ File Upload (MOVE karke)
-ipcMain.handle('upload-file', async () => {
-  const { canceled, filePaths } = await dialog.showOpenDialog({ properties: ['openFile', 'multiSelections'] });
-  if (canceled || filePaths.length === 0) return { success: false };
+// main.js
 
+// Sets up a listener for the 'upload-file' event from the frontend.
+ipcMain.handle('upload-file', async (event, { parentId }) => {
+  // 1. Open the native file selection dialog for the user.
+  const { canceled, filePaths } = await dialog.showOpenDialog({ 
+    properties: ['openFile', 'multiSelections'] 
+  });
+  
+  // If the user cancels, stop the process.
+  if (canceled || filePaths.length === 0) {
+    return { success: false };
+  }
+
+  // Load the current vault database (JSON file) into memory.
   const vaultData = readVaultData();
+  
+  // Process each file the user selected.
   for (const filePath of filePaths) {
     const fileName = path.basename(filePath);
     const destinationPath = path.join(vaultStoragePath, fileName);
-    
-    try {
-      fs.renameSync(filePath, destinationPath); // File ko MOVE karega
-    } catch (err) {
-      // Agar move fail ho to copy karke delete karega
-      fs.copyFileSync(filePath, destinationPath);
-      fs.unlinkSync(filePath);
+
+    // Prevent overwriting by skipping files that already exist in the vault.
+    if (fs.existsSync(destinationPath)) {
+        console.log(`Skipping duplicate file: ${fileName}`);
+        continue;
     }
+    
+    // 2. Physically MOVE the file from its original location to the app's secure folder.
+    fs.renameSync(filePath, destinationPath);
 
     const stats = fs.statSync(destinationPath);
-    const fileDetails = { name: fileName, path: destinationPath, size: `${(stats.size / (1024 * 1024)).toFixed(2)} MB`};
+    
+    // 3. Create a logical record (a "library card") for the file to be saved in the JSON database.
+    const fileDetails = {
+      id: `file-${Date.now()}-${Math.random()}`,
+      type: 'file',
+      name: fileName,
+      path: destinationPath, // The actual path for opening the file later.
+      size: `${(stats.size / (1024 * 1024)).toFixed(2)} MB`,
+      // This links the file to the virtual folder the user is currently in.
+      parentId: parentId, 
+    };
+    
+    // Automatically determine which category the file belongs to based on its extension.
     const extension = fileName.split('.').pop().toLowerCase();
+    let targetCategory = "Other Files";
+    if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(extension)) {
+      targetCategory = "Photos";
+    } else if (extension === 'pdf') {
+      targetCategory = "PDFs";
+    }
 
-    if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(extension)) vaultData.Photos.push(fileDetails);
-    else if (extension === 'pdf') vaultData.PDFs.push(fileDetails);
-    else vaultData["Other Files"].push(fileDetails);
+    // Add the new file record to the appropriate category in our in-memory data.
+    vaultData[targetCategory].push(fileDetails);
   }
 
+  // 4. Save all the changes back to the vault-data.json file on the disk.
   writeVaultData(vaultData);
+  
   return { success: true };
 });
 
@@ -103,49 +135,52 @@ ipcMain.handle('open-file', async (event, filePath) => {
   }
   return { success: false, message: "Security Error." };
 });
-// ipc handle for renaming a file
-// ✅ File Rename karna (FINAL CODE)
-ipcMain.handle('rename-file', async (event, file, newName) => {
+// ✅ File/Folder Rename karna (Updated to use ID)
+ipcMain.handle('rename-file', async (event, itemToRename, newName) => {
   try {
-    const dir = path.dirname(file.path);
-    const newPath = path.join(dir, newName);
-
-    // 1. Check karein ki naye naam se file pehle se मौजूद to nahi hai
-    if (fs.existsSync(newPath)) {
-      return { success: false, message: 'A file with that name already exists.' };
-    }
-
-    // 2. Asli file ko disk par rename karein
-    fs.renameSync(file.path, newPath);
-
-    // 3. vault-data.json mein record update karein
     const vaultData = readVaultData();
-    let fileUpdated = false;
+    let itemUpdated = false;
 
-    for (const cat in vaultData) {
-      // Sahi file ko uske purane path se dhundein
-      const fileIndex = vaultData[cat].findIndex(f => f.path === file.path);
-      
-      if (fileIndex !== -1) {
-        // File milne par uska naam aur path update karein
-        vaultData[cat][fileIndex].name = newName;
-        vaultData[cat][fileIndex].path = newPath;
-        fileUpdated = true;
-        break; // Loop se bahar aa jayein
+    // Sirf file hone par hi disk par rename karein
+    if (itemToRename.type === 'file') {
+      const dir = path.dirname(itemToRename.path);
+      const newPath = path.join(dir, newName);
+
+      if (fs.existsSync(newPath)) {
+        return { success: false, message: 'A file with that name already exists.' };
+      }
+      fs.renameSync(itemToRename.path, newPath);
+
+      // JSON mein path bhi update karna zaroori hai
+      for (const cat in vaultData) {
+        const item = vaultData[cat].find(i => i.id === itemToRename.id);
+        if (item) {
+          item.name = newName;
+          item.path = newPath; // Path bhi update karein
+          itemUpdated = true;
+          break;
+        }
+      }
+    } else { // Agar folder hai, to sirf JSON mein naam badlein
+      for (const cat in vaultData) {
+        const item = vaultData[cat].find(i => i.id === itemToRename.id);
+        if (item) {
+          item.name = newName;
+          itemUpdated = true;
+          break;
+        }
       }
     }
 
-    if (fileUpdated) {
+    if (itemUpdated) {
       writeVaultData(vaultData);
       return { success: true };
     } else {
-      // Agar kisi wajah se JSON mein file na mile (bahut rare case)
-      return { success: false, message: 'File record not found in the database.' };
+      return { success: false, message: 'Item record not found in the database.' };
     }
-
   } catch (error) {
-    console.error('File rename failed:', error);
-    return { success: false, message: 'Could not rename the file on the disk.' };
+    console.error('Item rename failed:', error);
+    return { success: false, message: 'Could not rename the item.' };
   }
 });
 
@@ -192,6 +227,40 @@ ipcMain.handle('delete-file', (event, file) => {
     return { success: true };
   }
   return { success: false };
+});
+// Handles the 'create-folder' event from the frontend.
+ipcMain.handle('create-folder', (event, { category, folderName, parentId }) => {
+  // 1. Validate the folder name to ensure it's not empty.
+  if (!folderName || folderName.trim() === '') {
+    return { success: false, message: 'Folder name cannot be empty.' };
+  }
+
+  // Load the current vault database into memory.
+  const vaultData = readVaultData();
+
+  // 2. Check if a folder or file with the same name already exists in the current location.
+  const nameExists = vaultData[category].some(item => 
+    item.parentId === parentId && item.name === folderName
+  );
+  if (nameExists) {
+    return { success: false, message: `An item named "${folderName}" already exists here.` };
+  }
+
+  // 3. Create the new virtual folder's record.
+  const newFolder = {
+    id: `folder-${Date.now()}`, // A unique ID for this folder.
+    type: 'folder',
+    name: folderName,
+    parentId: parentId, // Links this folder to its parent (a category or another folder).
+  };
+
+  // Add the new folder record to the correct category.
+  vaultData[category].push(newFolder);
+  
+  // 4. Save the updated data back to the vault-data.json file.
+  writeVaultData(vaultData);
+
+  return { success: true, newFolder };
 });
 
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
