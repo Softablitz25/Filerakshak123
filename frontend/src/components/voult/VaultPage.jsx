@@ -1,4 +1,4 @@
-// VaultPage.jsx (Final Code with All Fixes)
+// VaultPage.jsx (Button Removed)
 
 import React, { useState, useEffect } from "react";
 import {
@@ -86,11 +86,9 @@ export default function VaultPage({ onLockVault }) {
         parentId: currentParentId,
         category: activeCategory
     });
-    // Alert with the message from the backend
     if (result.message) {
       alert(result.message);
     }
-    // Reload data if at least one file was added
     if (result.success) {
       loadVaultData();
     }
@@ -171,6 +169,7 @@ export default function VaultPage({ onLockVault }) {
       </aside>
 
       <main className="flex-1 flex flex-col overflow-hidden">
+        {/* ✅ HEADER SECTION SE BUTTON HATA DIYA GAYA HAI */}
         <header className="flex items-center justify-between px-8 py-4 bg-slate-900/80 backdrop-blur-sm border-b border-slate-800">
           <div className="flex items-center gap-4">
             {currentParentId !== activeCategory && <button onClick={goBack} className="p-2 rounded-lg hover:bg-slate-800 transition-colors"><ArrowLeft size={20} className="text-slate-300" /></button>}

@@ -3,6 +3,10 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("api", {
+  // Session management functions
+  setSessionPassword: (password) => ipcRenderer.send("set-session-password", password),
+  clearSessionPassword: () => ipcRenderer.send("clear-session-password"), // ✅ YEH NAYA FUNCTION HAI
+
   // Password wale functions
   savePassword: (data) => ipcRenderer.send("save-password", data),
   vaultExists: () => ipcRenderer.invoke("vault-exists"),
@@ -19,8 +23,12 @@ contextBridge.exposeInMainWorld("api", {
   // File preview ke liye function
   getFileAsDataUrl: (filePath) => ipcRenderer.invoke('get-file-as-data-url', filePath),
 
-   // --- PASSWORD RECOVERY FUNCTIONS (These were missing) ---
+   // --- PASSWORD RECOVERY FUNCTIONS ---
   getSecurityQuestion: () => ipcRenderer.invoke('get-security-question'),
   verifyAnswer: (answer) => ipcRenderer.invoke('verify-answer', answer),
   resetPassword: (newPassword) => ipcRenderer.invoke('reset-password', newPassword),
+
+
+  setSessionPassword: (password) => ipcRenderer.send("set-session-password", password),
+
 });

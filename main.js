@@ -2,12 +2,22 @@ const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 
 // --- Paths ---
 const userDataPath = app.getPath('userData');
 const vaultConfigPath = path.join(userDataPath, 'vault-password.json');
 const vaultDataPath = path.join(userDataPath, 'vault-data.json');
 const vaultStoragePath = path.join(userDataPath, 'secure_vault_files');
+
+// --- Global variable to hold the password for the session ---
+let sessionPassword = null;
+const ALGORITHM = 'aes-256-gcm';
+const IV_LENGTH = 16;
+const SALT_LENGTH = 64;
+const TAG_LENGTH = 16;
+const KEY_LENGTH = 32;
+const PBKDF2_ITERATIONS = 100000;
 
 // --- Initialize folders and files ---
 if (!fs.existsSync(vaultStoragePath)) {
@@ -20,6 +30,37 @@ if (!fs.existsSync(vaultDataPath)) {
 // --- Helper Functions ---
 const readVaultData = () => JSON.parse(fs.readFileSync(vaultDataPath, 'utf-8'));
 const writeVaultData = (data) => fs.writeFileSync(vaultDataPath, JSON.stringify(data, null, 2));
+
+// --- Encryption and Decryption Functions ---
+const getKey = (password, salt) => {
+    return crypto.pbkdf2Sync(password, salt, PBKDF2_ITERATIONS, KEY_LENGTH, 'sha512');
+};
+
+const encryptFile = (buffer, password) => {
+    const salt = crypto.randomBytes(SALT_LENGTH);
+    const key = getKey(password, salt);
+    const iv = crypto.randomBytes(IV_LENGTH);
+    const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
+    const encrypted = Buffer.concat([cipher.update(buffer), cipher.final()]);
+    const tag = cipher.getAuthTag();
+    return Buffer.concat([salt, iv, tag, encrypted]);
+};
+
+const decryptFile = (encryptedBuffer, password) => {
+    try {
+        const salt = encryptedBuffer.slice(0, SALT_LENGTH);
+        const iv = encryptedBuffer.slice(SALT_LENGTH, SALT_LENGTH + IV_LENGTH);
+        const tag = encryptedBuffer.slice(SALT_LENGTH + IV_LENGTH, SALT_LENGTH + IV_LENGTH + TAG_LENGTH);
+        const encrypted = encryptedBuffer.slice(SALT_LENGTH + IV_LENGTH + TAG_LENGTH);
+        const key = getKey(password, salt);
+        const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
+        decipher.setAuthTag(tag);
+        return Buffer.concat([decipher.update(encrypted), decipher.final()]);
+    } catch (error) {
+        console.error("Decryption failed:", error.message);
+        return null;
+    }
+};
 
 
 function createWindow() {
@@ -39,25 +80,43 @@ function createWindow() {
 
 app.whenReady().then(createWindow);
 
-
 // --- IPC Handlers ---
 
-// main.js (SAHI CODE)
+// ✅ YAHAN BADLAV KIYA GAYA HAI: Naya handler session clear karne ke liye
+ipcMain.on('clear-session-password', () => {
+    sessionPassword = null;
+    console.log("Session password has been cleared (logout).");
+});
 
-// Is version mein password aur security details, dono save ho rahe hain.
+ipcMain.on('set-session-password', (event, password) => {
+    sessionPassword = password;
+    console.log("Session password has been set.");
+});
+
 ipcMain.on('save-password', (event, data) => {
+  try {
+    const files = fs.readdirSync(vaultStoragePath);
+    for (const file of files) {
+      fs.unlinkSync(path.join(vaultStoragePath, file));
+    }
+  } catch (err) {
+    console.error('Could not clear old vault files:', err);
+  }
+
+  const emptyData = { Photos: [], PDFs: [], "Other Files": [] };
+  writeVaultData(emptyData);
+  
   const hashedPassword = bcrypt.hashSync(data.password, 10);
   const answerHash = bcrypt.hashSync(data.securityAnswer, 10);
 
   const configData = {
     password: hashedPassword,
     security: {
-      question: data.securityQuestion, // e.g., "pet", "city"
+      question: data.securityQuestion,
       answer: answerHash,
     }
   };
 
-  // Yahan galti thi. Ab poora 'configData' object save hoga.
   fs.writeFileSync(vaultConfigPath, JSON.stringify(configData, null, 2));
 });
 
@@ -75,8 +134,10 @@ ipcMain.handle('get-vault-data', () => {
   return readVaultData();
 });
 
-// ✅ FINAL 'upload-file' handler with strict type checking
 ipcMain.handle('upload-file', async (event, { parentId, category }) => {
+  if (!sessionPassword) {
+      return { success: false, message: "Security Error: No session password." };
+  }
   const { canceled, filePaths } = await dialog.showOpenDialog({
     properties: ['openFile', 'multiSelections']
   });
@@ -91,38 +152,18 @@ ipcMain.handle('upload-file', async (event, { parentId, category }) => {
 
   for (const filePath of filePaths) {
     const fileName = path.basename(filePath);
-    const extension = path.extname(fileName).substring(1).toLowerCase();
-
-    // --- STRICT TYPE CHECKING LOGIC ---
-    const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(extension);
-    const isPdf = extension === 'pdf';
-
-    let canUpload = false;
-    if (category === "Photos" && isImage) {
-      canUpload = true;
-    } else if (category === "PDFs" && isPdf) {
-      canUpload = true;
-    } else if (category === "Other Files" && !isImage && !isPdf) {
-      canUpload = true;
-    }
-
-    if (!canUpload) {
-      console.log(`Skipping file: ${fileName}. Type does not match category "${category}".`);
-      skippedCount++;
-      continue; // Skip to the next file
-    }
-    // --- END OF LOGIC ---
-
-    const destinationPath = path.join(vaultStoragePath, fileName);
+    const destinationPath = path.join(vaultStoragePath, fileName + ".enc");
+    
     if (fs.existsSync(destinationPath)) {
-      console.log(`Skipping duplicate file: ${fileName}`);
-      skippedCount++;
-      continue;
+        skippedCount++;
+        continue;
     }
-
-    fs.renameSync(filePath, destinationPath);
+    
+    const fileBuffer = fs.readFileSync(filePath);
+    const encryptedBuffer = encryptFile(fileBuffer, sessionPassword);
+    fs.writeFileSync(destinationPath, encryptedBuffer);
     addedCount++;
-
+    
     const stats = fs.statSync(destinationPath);
     const fileDetails = {
       id: `file-${Date.now()}-${Math.random()}`,
@@ -136,102 +177,109 @@ ipcMain.handle('upload-file', async (event, { parentId, category }) => {
     if (vaultData[category]) {
       vaultData[category].push(fileDetails);
     } else {
-      console.error(`Error: Category "${category}" does not exist.`);
-      vaultData["Other Files"].push(fileDetails); // Fallback
+      vaultData["Other Files"].push(fileDetails);
     }
   }
 
   writeVaultData(vaultData);
 
   let message = "";
-  if (addedCount > 0) {
-    message += `${addedCount} file(s) added successfully.`;
-  }
-  if (skippedCount > 0) {
-    message += ` ${skippedCount} file(s) were skipped due to wrong category or being a duplicate.`;
-  }
-
-  if (addedCount === 0 && skippedCount > 0) {
-    return { success: false, message: `No files were added. ${skippedCount} file(s) were skipped.` };
-  }
-
-  return { success: true, message: message.trim() };
+  if (addedCount > 0) message += `${addedCount} file(s) added successfully.`;
+  if (skippedCount > 0) message += ` ${skippedCount} file(s) were skipped as duplicates.`;
+  
+  return { success: addedCount > 0, message: message.trim() };
 });
 
-
 ipcMain.handle('open-file', async (event, filePath) => {
-  if (filePath && filePath.startsWith(vaultStoragePath)) {
-    const error = await shell.openPath(filePath);
+    if (!sessionPassword) return { success: false, message: "Security Error." };
+    if (!filePath || !filePath.startsWith(vaultStoragePath)) return { success: false, message: "Invalid file path." };
+
+    const encryptedBuffer = fs.readFileSync(filePath);
+    const decryptedBuffer = decryptFile(encryptedBuffer, sessionPassword);
+
+    if (!decryptedBuffer) {
+        return { success: false, message: "Decryption failed. Incorrect password?" };
+    }
+
+    const tempDir = path.join(app.getPath('temp'), 'FileRakshak');
+    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
+    
+    const originalName = path.basename(filePath, '.enc');
+    const tempFilePath = path.join(tempDir, originalName);
+
+    fs.writeFileSync(tempFilePath, decryptedBuffer);
+
+    const error = await shell.openPath(tempFilePath);
     if (error) return { success: false, message: error };
     return { success: true };
-  }
-  return { success: false, message: "Security Error." };
+});
+
+ipcMain.handle('get-file-as-data-url', async (event, filePath) => {
+    if (!sessionPassword) return null;
+    try {
+        const encryptedBuffer = fs.readFileSync(filePath);
+        const decryptedBuffer = decryptFile(encryptedBuffer, sessionPassword);
+        if (!decryptedBuffer) return null;
+
+        const fileExtension = path.extname(path.basename(filePath, '.enc')).substring(1).toLowerCase();
+        let mimeType = 'application/octet-stream';
+
+        if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(fileExtension)) {
+            mimeType = `image/${fileExtension}`;
+        } else if (fileExtension === 'pdf') {
+            mimeType = 'application/pdf';
+        }
+
+        return `data:${mimeType};base64,${decryptedBuffer.toString('base64')}`;
+    } catch (error) {
+        console.error("Error creating data URL:", error);
+        return null;
+    }
 });
 
 ipcMain.handle('rename-file', async (event, itemToRename, newName) => {
-  try {
     const vaultData = readVaultData();
-    let itemUpdated = false;
-
-    if (itemToRename.type === 'file') {
-      const dir = path.dirname(itemToRename.path);
-      const newPath = path.join(dir, newName);
-
-      if (fs.existsSync(newPath)) {
-        return { success: false, message: 'A file with that name already exists.' };
-      }
-      fs.renameSync(itemToRename.path, newPath);
-
-      for (const cat in vaultData) {
+    for (const cat in vaultData) {
         const item = vaultData[cat].find(i => i.id === itemToRename.id);
         if (item) {
-          item.name = newName;
-          item.path = newPath;
-          itemUpdated = true;
-          break;
+            if (item.type === 'file') {
+                 const oldPath = item.path;
+                 const newPath = path.join(path.dirname(oldPath), newName + ".enc");
+                 fs.renameSync(oldPath, newPath);
+                 item.path = newPath;
+            }
+            item.name = newName;
+            writeVaultData(vaultData);
+            return { success: true };
         }
-      }
-    } else {
-      for (const cat in vaultData) {
-        const item = vaultData[cat].find(i => i.id === itemToRename.id);
-        if (item) {
-          item.name = newName;
-          itemUpdated = true;
-          break;
-        }
-      }
     }
-
-    if (itemUpdated) {
-      writeVaultData(vaultData);
-      return { success: true };
-    } else {
-      return { success: false, message: 'Item record not found in the database.' };
-    }
-  } catch (error) {
-    console.error('Item rename failed:', error);
-    return { success: false, message: 'Could not rename the item.' };
-  }
+    return { success: false, message: 'Item not found.' };
 });
 
 ipcMain.handle('export-file', async (event, file) => {
-  const { filePath } = await dialog.showSaveDialog({ title: 'Export File', defaultPath: file.name });
-  if (filePath) {
-    try {
-      fs.copyFileSync(file.path, filePath);
-      fs.unlinkSync(file.path);
-      const vaultData = readVaultData();
-      Object.keys(vaultData).forEach(cat => {
-        vaultData[cat] = vaultData[cat].filter(f => f.id !== file.id);
-      });
-      writeVaultData(vaultData);
-      return { success: true };
-    } catch (error) {
-      console.error('File export failed:', error);
-      return { success: false, message: 'Failed to export and remove file.' };
-    }
-  }
-  return { success: false, message: 'Export cancelled.' };
+   if (!sessionPassword) return { success: false, message: "Security Error." };
+   const { filePath } = await dialog.showSaveDialog({ title: 'Export File', defaultPath: file.name });
+   if (filePath) {
+       try {
+           const encryptedBuffer = fs.readFileSync(file.path);
+           const decryptedBuffer = decryptFile(encryptedBuffer, sessionPassword);
+           if (!decryptedBuffer) return { success: false, message: 'Decryption failed.' };
+
+           fs.writeFileSync(filePath, decryptedBuffer);
+           fs.unlinkSync(file.path);
+           
+           const vaultData = readVaultData();
+           Object.keys(vaultData).forEach(cat => {
+               vaultData[cat] = vaultData[cat].filter(f => f.id !== file.id);
+           });
+           writeVaultData(vaultData);
+           return { success: true };
+       } catch (error) {
+           console.error('File export failed:', error);
+           return { success: false, message: 'Failed to export file.' };
+       }
+   }
+   return { success: false, message: 'Export cancelled.' };
 });
 
 ipcMain.handle('create-folder', (event, { category, folderName, parentId }) => {
@@ -256,28 +304,6 @@ ipcMain.handle('create-folder', (event, { category, folderName, parentId }) => {
   return { success: true, newFolder };
 });
 
-ipcMain.handle('get-file-as-data-url', async (event, filePath) => {
-  try {
-    const fileData = fs.readFileSync(filePath);
-    const fileExtension = path.extname(filePath).substring(1).toLowerCase();
-    let mimeType = 'application/octet-stream';
-
-    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(fileExtension)) {
-      mimeType = `image/${fileExtension}`;
-    } else if (fileExtension === 'pdf') {
-      mimeType = 'application/pdf';
-    }
-
-    return `data:${mimeType};base64,${fileData.toString('base64')}`;
-  } catch (error) {
-    console.error("Error reading file for data URL:", error);
-    return null;
-  }
-});
-// forgot password handlers
-// --- ADD THIS ENTIRE BLOCK TO YOUR MAIN.JS ---
-
-// A. Handler to get the user's chosen security question
 ipcMain.handle('get-security-question', () => {
   if (!fs.existsSync(vaultConfigPath)) {
     return { success: false };
@@ -289,26 +315,17 @@ ipcMain.handle('get-security-question', () => {
   return { success: true, question: savedConfig.security.question };
 });
 
-// B. Handler to verify the user's answer
 ipcMain.handle('verify-answer', (event, userAnswer) => {
   const savedConfig = JSON.parse(fs.readFileSync(vaultConfigPath, 'utf-8'));
   const answerHash = savedConfig.security.answer;
-
-  const isMatch = bcrypt.compareSync(userAnswer, answerHash);
-  return { success: isMatch };
+  return { success: bcrypt.compareSync(userAnswer, answerHash) };
 });
 
-// C. Handler to reset the password after successful verification
 ipcMain.handle('reset-password', (event, newPassword) => {
   try {
     const savedConfig = JSON.parse(fs.readFileSync(vaultConfigPath, 'utf-8'));
-
-    // Update only the password hash
     savedConfig.password = bcrypt.hashSync(newPassword, 10);
-
-    // Save the updated config file
     fs.writeFileSync(vaultConfigPath, JSON.stringify(savedConfig, null, 2));
-
     return { success: true };
   } catch (error) {
     console.error("Password reset failed:", error);
