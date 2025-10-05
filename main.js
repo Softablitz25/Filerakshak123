@@ -42,9 +42,23 @@ app.whenReady().then(createWindow);
 
 // --- IPC Handlers ---
 
+// main.js (SAHI CODE)
+
+// Is version mein password aur security details, dono save ho rahe hain.
 ipcMain.on('save-password', (event, data) => {
   const hashedPassword = bcrypt.hashSync(data.password, 10);
-  fs.writeFileSync(vaultConfigPath, JSON.stringify({ password: hashedPassword }));
+  const answerHash = bcrypt.hashSync(data.securityAnswer, 10);
+
+  const configData = {
+    password: hashedPassword,
+    security: {
+      question: data.securityQuestion, // e.g., "pet", "city"
+      answer: answerHash,
+    }
+  };
+
+  // Yahan galti thi. Ab poora 'configData' object save hoga.
+  fs.writeFileSync(vaultConfigPath, JSON.stringify(configData, null, 2));
 });
 
 ipcMain.handle('vault-exists', () => {
@@ -105,7 +119,7 @@ ipcMain.handle('upload-file', async (event, { parentId, category }) => {
       skippedCount++;
       continue;
     }
-    
+
     fs.renameSync(filePath, destinationPath);
     addedCount++;
 
@@ -118,12 +132,12 @@ ipcMain.handle('upload-file', async (event, { parentId, category }) => {
       size: `${(stats.size / (1024 * 1024)).toFixed(2)} MB`,
       parentId: parentId,
     };
-    
+
     if (vaultData[category]) {
-        vaultData[category].push(fileDetails);
+      vaultData[category].push(fileDetails);
     } else {
-        console.error(`Error: Category "${category}" does not exist.`);
-        vaultData["Other Files"].push(fileDetails); // Fallback
+      console.error(`Error: Category "${category}" does not exist.`);
+      vaultData["Other Files"].push(fileDetails); // Fallback
     }
   }
 
@@ -137,10 +151,10 @@ ipcMain.handle('upload-file', async (event, { parentId, category }) => {
     message += ` ${skippedCount} file(s) were skipped due to wrong category or being a duplicate.`;
   }
 
-  if(addedCount === 0 && skippedCount > 0) {
+  if (addedCount === 0 && skippedCount > 0) {
     return { success: false, message: `No files were added. ${skippedCount} file(s) were skipped.` };
   }
-  
+
   return { success: true, message: message.trim() };
 });
 
@@ -205,7 +219,7 @@ ipcMain.handle('export-file', async (event, file) => {
   if (filePath) {
     try {
       fs.copyFileSync(file.path, filePath);
-      fs.unlinkSync(file.path); 
+      fs.unlinkSync(file.path);
       const vaultData = readVaultData();
       Object.keys(vaultData).forEach(cat => {
         vaultData[cat] = vaultData[cat].filter(f => f.id !== file.id);
@@ -225,7 +239,7 @@ ipcMain.handle('create-folder', (event, { category, folderName, parentId }) => {
     return { success: false, message: 'Folder name cannot be empty.' };
   }
   const vaultData = readVaultData();
-  const nameExists = vaultData[category].some(item => 
+  const nameExists = vaultData[category].some(item =>
     item.parentId === parentId && item.name === folderName
   );
   if (nameExists) {
@@ -247,17 +261,58 @@ ipcMain.handle('get-file-as-data-url', async (event, filePath) => {
     const fileData = fs.readFileSync(filePath);
     const fileExtension = path.extname(filePath).substring(1).toLowerCase();
     let mimeType = 'application/octet-stream';
-    
+
     if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(fileExtension)) {
       mimeType = `image/${fileExtension}`;
     } else if (fileExtension === 'pdf') {
-        mimeType = 'application/pdf';
+      mimeType = 'application/pdf';
     }
-    
+
     return `data:${mimeType};base64,${fileData.toString('base64')}`;
   } catch (error) {
     console.error("Error reading file for data URL:", error);
     return null;
+  }
+});
+// forgot password handlers
+// --- ADD THIS ENTIRE BLOCK TO YOUR MAIN.JS ---
+
+// A. Handler to get the user's chosen security question
+ipcMain.handle('get-security-question', () => {
+  if (!fs.existsSync(vaultConfigPath)) {
+    return { success: false };
+  }
+  const savedConfig = JSON.parse(fs.readFileSync(vaultConfigPath, 'utf-8'));
+  if (!savedConfig.security || !savedConfig.security.question) {
+    return { success: false, message: "No security question is set for this vault." };
+  }
+  return { success: true, question: savedConfig.security.question };
+});
+
+// B. Handler to verify the user's answer
+ipcMain.handle('verify-answer', (event, userAnswer) => {
+  const savedConfig = JSON.parse(fs.readFileSync(vaultConfigPath, 'utf-8'));
+  const answerHash = savedConfig.security.answer;
+
+  const isMatch = bcrypt.compareSync(userAnswer, answerHash);
+  return { success: isMatch };
+});
+
+// C. Handler to reset the password after successful verification
+ipcMain.handle('reset-password', (event, newPassword) => {
+  try {
+    const savedConfig = JSON.parse(fs.readFileSync(vaultConfigPath, 'utf-8'));
+
+    // Update only the password hash
+    savedConfig.password = bcrypt.hashSync(newPassword, 10);
+
+    // Save the updated config file
+    fs.writeFileSync(vaultConfigPath, JSON.stringify(savedConfig, null, 2));
+
+    return { success: true };
+  } catch (error) {
+    console.error("Password reset failed:", error);
+    return { success: false, message: "Could not reset password." };
   }
 });
 

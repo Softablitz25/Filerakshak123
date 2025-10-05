@@ -10,7 +10,7 @@ const InputWrapper = ({ children, icon }) => (
   </div>
 );
 
-export default function OpenVaultScreen({ onBackClick, onFormSubmit }) {
+export default function OpenVaultScreen({ onBackClick, onFormSubmit, onForgotPasswordClick }) {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [attempts, setAttempts] = useState(0);
@@ -74,11 +74,11 @@ export default function OpenVaultScreen({ onBackClick, onFormSubmit }) {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <InputWrapper icon={<Lock size={18} />}>
-              <input 
+              <input
                 value={password}
                 onChange={handlePasswordChange} // ✅ Yahan naya function use ho raha hai
                 type={showPassword ? "text" : "password"}
-                placeholder="Enter Password" 
+                placeholder="Enter Password"
                 required
                 className="input-field pr-10"
                 autoFocus
@@ -90,6 +90,22 @@ export default function OpenVaultScreen({ onBackClick, onFormSubmit }) {
             {/* ✅ Error message yahan dikhega */}
             {error && <p className="text-red-400 text-sm mt-2 text-center">{error}</p>}
           </div>
+          {/* forgot password button  */}
+          {!isLocked && (
+            <div className="text-center mt-6">
+              <button
+                type="button"
+                onClick={onForgotPasswordClick}
+                className="relative text-sm font-medium text-slate-400 
+                 hover:text-blue-400 transition-colors 
+                 after:content-[''] after:block after:w-0 after:h-[1.5px] 
+                 after:bg-blue-400 after:transition-all after:duration-300 
+                 hover:after:w-full after:mx-auto"
+              >
+                Forgot Password ?
+              </button>
+            </div>
+          )}
 
           <div className="flex gap-4 pt-4">
             <button type="button" onClick={onBackClick} className="action-button secondary-button">
