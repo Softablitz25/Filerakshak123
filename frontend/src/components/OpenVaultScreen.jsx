@@ -16,8 +16,10 @@ export default function OpenVaultScreen({ onBackClick, onFormSubmit, onForgotPas
   const [attempts, setAttempts] = useState(0);
   const [isLocked, setIsLocked] = useState(false);
   const [lockoutTimer, setLockoutTimer] = useState(0);
-  const [error, setError] = useState(''); // ✅ Naya state error message ke liye
+  const [error, setError] = useState('');
   const MAX_ATTEMPTS = 3;
+
+  // Is component mein ab kisi extra useEffect ki zaroorat nahi hai.
 
   useEffect(() => {
     let timer;
@@ -26,7 +28,7 @@ export default function OpenVaultScreen({ onBackClick, onFormSubmit, onForgotPas
     } else if (lockoutTimer === 0 && isLocked) {
       setIsLocked(false);
       setAttempts(0);
-      setError(''); // Lockout khatam hone par error message saaf karein
+      setError('');
     }
     return () => clearInterval(timer);
   }, [isLocked, lockoutTimer]);
@@ -34,7 +36,7 @@ export default function OpenVaultScreen({ onBackClick, onFormSubmit, onForgotPas
   const handlePasswordChange = (e) => {
     setPassword(e.target.value);
     if (error) {
-      setError(''); // User jaise hi type karna shuru kare, error hata dein
+      setError('');
     }
   };
 
@@ -45,7 +47,7 @@ export default function OpenVaultScreen({ onBackClick, onFormSubmit, onForgotPas
     const isMatch = await window.api.checkPassword(password);
 
     if (isMatch) {
-      onFormSubmit();
+      onFormSubmit(password);
     } else {
       const newAttempts = attempts + 1;
       setAttempts(newAttempts);
@@ -76,7 +78,7 @@ export default function OpenVaultScreen({ onBackClick, onFormSubmit, onForgotPas
             <InputWrapper icon={<Lock size={18} />}>
               <input
                 value={password}
-                onChange={handlePasswordChange} // ✅ Yahan naya function use ho raha hai
+                onChange={handlePasswordChange}
                 type={showPassword ? "text" : "password"}
                 placeholder="Enter Password"
                 required
@@ -87,10 +89,8 @@ export default function OpenVaultScreen({ onBackClick, onFormSubmit, onForgotPas
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </InputWrapper>
-            {/* ✅ Error message yahan dikhega */}
             {error && <p className="text-red-400 text-sm mt-2 text-center">{error}</p>}
           </div>
-          {/* forgot password button  */}
           {!isLocked && (
             <div className="text-center mt-6">
               <button

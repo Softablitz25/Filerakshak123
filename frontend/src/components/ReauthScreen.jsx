@@ -45,8 +45,7 @@ export default function ReauthScreen({ onFormSubmit, onFullLock }) {
     const isMatch = await window.api.checkPassword(password);
 
     if (isMatch) {
-      // Password sahi hone par onFormSubmit ko call karein (bina data ke)
-      onFormSubmit();
+      onFormSubmit(password); // Password ko App.jsx mein bhejein
     } else {
       const newAttempts = attempts + 1;
       setAttempts(newAttempts);

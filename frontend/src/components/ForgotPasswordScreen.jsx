@@ -17,7 +17,6 @@ export default function ForgotPasswordScreen({ onResetSuccess, onBackClick }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
 
-  // Load the user's chosen security question when the screen appears
   useEffect(() => {
     const loadQuestion = async () => {
       try {
@@ -39,7 +38,6 @@ export default function ForgotPasswordScreen({ onResetSuccess, onBackClick }) {
     loadQuestion();
   }, []);
 
-  // Stage 1: Verify the user's answer
   const handleVerify = async (e) => {
     e.preventDefault();
     if (!answer.trim()) {
@@ -49,7 +47,7 @@ export default function ForgotPasswordScreen({ onResetSuccess, onBackClick }) {
     const result = await window.api.verifyAnswer(answer);
     if (result.success) {
       setError('');
-      setStage('reset'); // Success! Move to the password reset stage.
+      setStage('reset');
     } else {
       setError("That answer is incorrect. Please try again.");
     }
@@ -58,8 +56,10 @@ export default function ForgotPasswordScreen({ onResetSuccess, onBackClick }) {
   // Stage 2: Reset the password
   const handleResetPassword = async (e) => {
     e.preventDefault();
-    if (newPassword.length < 8) {
-      setError("New password must be at least 8 characters long.");
+    
+    // ✅ YAHAN BADLAV KIYA GAYA HAI (8 se 4)
+    if (newPassword.length < 4) {
+      setError("New password must be at least 4 characters long.");
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -69,13 +69,12 @@ export default function ForgotPasswordScreen({ onResetSuccess, onBackClick }) {
     const result = await window.api.resetPassword(newPassword);
     if (result.success) {
       alert("Password has been reset successfully!");
-      onResetSuccess(); // Go back to the login screen
+      onResetSuccess();
     } else {
       setError("Failed to reset password. Please try again.");
     }
   };
 
-  // Renders the view for Stage 2 (Setting a new password)
   if (stage === 'reset') {
     return (
       <div>
@@ -90,7 +89,6 @@ export default function ForgotPasswordScreen({ onResetSuccess, onBackClick }) {
     );
   }
 
-  // Renders the view for Stage 1 (Answering the security question)
   return (
     <div>
       <div className="text-center mb-8">
