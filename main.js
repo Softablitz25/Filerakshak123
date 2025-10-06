@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, session } = require('electron'); // session ko yahan import karein
 const path = require('path');
 const fs = require('fs');
 const bcrypt = require('bcryptjs');
@@ -78,6 +78,18 @@ function createWindow() {
       contextIsolation: true,
     },
   });
+
+  // YAHAN BADLAV KIYA GAYA HAI
+  // Camera permission ko automatically allow karein
+  const ses = win.webContents.session;
+  ses.setPermissionRequestHandler((webContents, permission, callback) => {
+    if (permission === 'media') {
+      callback(true); // Permission de dein
+    } else {
+      callback(false); // Baaki sabko reject karein
+    }
+  });
+
 
   win.loadURL('http://localhost:5173');
   win.webContents.openDevTools();
