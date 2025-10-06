@@ -6,10 +6,11 @@ const crypto = require('crypto');
 
 // --- Paths ---
 const userDataPath = app.getPath('userData');
+console.log('THE EXACT PATH IS:', userDataPath)
 const vaultConfigPath = path.join(userDataPath, 'vault-password.json');
 const vaultDataPath = path.join(userDataPath, 'vault-data.json');
 const vaultStoragePath = path.join(userDataPath, 'secure_vault_files');
-
+const securityLogsPath = path.join(userDataPath, 'security_logs');
 // --- Global variable to hold the password for the session ---
 let sessionPassword = null;
 const ALGORITHM = 'aes-256-gcm';
@@ -22,6 +23,10 @@ const PBKDF2_ITERATIONS = 100000;
 // --- Initialize folders and files ---
 if (!fs.existsSync(vaultStoragePath)) {
   fs.mkdirSync(vaultStoragePath);
+}
+// this is for security logs like images captured on intrusion
+if (!fs.existsSync(securityLogsPath)) { 
+  fs.mkdirSync(securityLogsPath);
 }
 if (!fs.existsSync(vaultDataPath)) {
   fs.writeFileSync(vaultDataPath, JSON.stringify({ Photos: [], PDFs: [], "Other Files": [] }));
@@ -81,8 +86,54 @@ function createWindow() {
 app.whenReady().then(createWindow);
 
 // --- IPC Handlers ---
+// hnadler for the image capture....
+ ipcMain.on('save-intruder-image', (event, imageDataUrl) => {
+  try {
+    const timestamp = new Date().toISOString().replace(/:/g, '-');
+    const imagePath = path.join(securityLogsPath, `intruder-${timestamp}.jpeg`);
+    const logPath = path.join(securityLogsPath, 'security_alerts.log');
+    
+    const data = imageDataUrl.replace(/^data:image\/\w+;base64,/, "");
+    const buffer = Buffer.from(data, 'base64');
+    
+    fs.writeFileSync(imagePath, buffer);
+    console.log(`Intruder image saved to: ${imagePath}`);
+    
+    const logEntry = `[${new Date().toLocaleString()}] - Maximum failed login attempts detected. Image captured: ${path.basename(imagePath)}\n`;
+    fs.appendFileSync(logPath, logEntry);
 
-// ✅ YAHAN BADLAV KIYA GAYA HAI: Naya handler session clear karne ke liye
+  } catch (error) {
+    console.error('Failed to save intruder image:', error);
+  }
+});
+ipcMain.handle('get-security-logs', async () => {
+  const logs = [];
+  try {
+    const files = fs.readdirSync(securityLogsPath);
+    
+    // Filter for only jpeg files and sort them newest first
+    const imageFiles = files
+      .filter(file => file.endsWith('.jpeg'))
+      .sort()
+      .reverse();
+
+    for (const file of imageFiles) {
+      const filePath = path.join(securityLogsPath, file);
+      const fileBuffer = fs.readFileSync(filePath);
+      
+      // Extract timestamp from filename
+      const timestamp = path.basename(file, '.jpeg').replace('intruder-', '');
+      
+      logs.push({
+        timestamp: new Date(timestamp).toLocaleString(), // Make it human-readable
+        imageData: fileBuffer.toString('base64'), // Convert image to Base64
+      });
+    }
+  } catch (error) {
+    console.error('Could not read security logs:', error);
+  }
+  return logs;
+});
 ipcMain.on('clear-session-password', () => {
     sessionPassword = null;
     console.log("Session password has been cleared (logout).");

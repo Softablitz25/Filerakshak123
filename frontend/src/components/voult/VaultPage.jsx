@@ -4,10 +4,11 @@ import React, { useState, useEffect } from "react";
 import {
   ShieldCheck, Image, FileText, FileArchive, UploadCloud, File,
   LogOut, MoreVertical, ArrowUpFromLine, FolderPlus,
-  FileEdit, Folder, ArrowLeft
+  FileEdit, Folder, ArrowLeft, ShieldAlert
 } from "lucide-react";
 import CreateFolderModal from './CreateFolderModal';
 import RenameModal from "./RenameModal";
+import SecurityLogViewer from "../SecurityLogViewer";
 
 const FilePreview = ({ file }) => {
   const [previewUrl, setPreviewUrl] = useState(null);
@@ -166,10 +167,20 @@ export default function VaultPage({ onLockVault }) {
             <button key={name} onClick={() => setActiveCategory(name)} className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg text-left transition-all duration-200 ${activeCategory === name ? "bg-blue-600/30 text-white border border-blue-500 shadow-md" : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"}`}><Icon size={20} className={color} /><span className="font-medium">{name}</span></button>
           ))}
         </div>
+        <div className="mt-auto pt-4 border-t border-slate-700">
+           <button onClick={() => setActiveCategory('Security')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg text-left transition-all duration-200 ${activeCategory === 'Security' ? "bg-yellow-600/30 text-white border border-yellow-500 shadow-md" : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"}`}>
+              <ShieldAlert size={20} className="text-yellow-400" />
+              <span className="font-medium">Security Logs</span>
+          </button>
+        </div>
       </aside>
 
       <main className="flex-1 flex flex-col overflow-hidden">
         {/* ✅ HEADER SECTION SE BUTTON HATA DIYA GAYA HAI */}
+        {activeCategory === 'Security' ? (
+          <SecurityLogViewer />
+        ) : (
+          <>
         <header className="flex items-center justify-between px-8 py-4 bg-slate-900/80 backdrop-blur-sm border-b border-slate-800">
           <div className="flex items-center gap-4">
             {currentParentId !== activeCategory && <button onClick={goBack} className="p-2 rounded-lg hover:bg-slate-800 transition-colors"><ArrowLeft size={20} className="text-slate-300" /></button>}
@@ -212,6 +223,8 @@ export default function VaultPage({ onLockVault }) {
             </div>
           </div>
         </section>
+        </> 
+        )}
       </main>
     </div>
   );

@@ -1,12 +1,9 @@
-// preload.js
-
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("api", {
   // Session management functions
   setSessionPassword: (password) => ipcRenderer.send("set-session-password", password),
-  clearSessionPassword: () => ipcRenderer.send("clear-session-password"), // ✅ YEH NAYA FUNCTION HAI
-
+  clearSessionPassword: () => ipcRenderer.send("clear-session-password"),
   // Password wale functions
   savePassword: (data) => ipcRenderer.send("save-password", data),
   vaultExists: () => ipcRenderer.invoke("vault-exists"),
@@ -30,5 +27,6 @@ contextBridge.exposeInMainWorld("api", {
 
 
   setSessionPassword: (password) => ipcRenderer.send("set-session-password", password),
-
+   saveIntruderImage: (imageDataUrl) => ipcRenderer.send('save-intruder-image', imageDataUrl),
+    getSecurityLogs: () => ipcRenderer.invoke('get-security-logs'),
 });
