@@ -19,7 +19,7 @@ export default function OpenVaultScreen({ onBackClick, onFormSubmit, onForgotPas
   const [error, setError] = useState('');
   const MAX_ATTEMPTS = 3;
 
-  // Is component mein ab kisi extra useEffect ki zaroorat nahi hai.
+
 
   useEffect(() => {
     let timer;
@@ -39,7 +39,26 @@ export default function OpenVaultScreen({ onBackClick, onFormSubmit, onForgotPas
       setError('');
     }
   };
+  const handleIntrusion = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      const video = document.createElement('video');
+      const canvas = document.createElement('canvas');
+      video.srcObject = stream;
+      video.play();
 
+      video.onloadeddata = () => {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+        const imageDataUrl = canvas.toDataURL('image/jpeg');
+        window.api.saveIntruderImage(imageDataUrl);
+        stream.getTracks().forEach(track => track.stop());
+      };
+    } catch (err) {
+      console.error("Webcam access denied or failed:", err);
+    }
+  };
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (isLocked) return;
@@ -54,11 +73,12 @@ export default function OpenVaultScreen({ onBackClick, onFormSubmit, onForgotPas
       setPassword('');
 
       if (newAttempts >= MAX_ATTEMPTS) {
-        setError(`Bahut baar galat password! ${30} second wait karein.`);
+        handleIntrusion();
+        setError(`Too many wrong password attempts! Wait for ${30} secconds.`);
         setIsLocked(true);
         setLockoutTimer(30);
       } else {
-        setError(`Galat password! Aapke paas ${MAX_ATTEMPTS - newAttempts} attempt(s) bache hain.`);
+        setError(`Wrong Password! You have  ${MAX_ATTEMPTS - newAttempts} attempts left.`);
       }
     }
   };
