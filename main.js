@@ -106,7 +106,34 @@ app.whenReady().then(createWindow);
     console.error('Failed to save intruder image:', error);
   }
 });
+ipcMain.handle('get-security-logs', async () => {
+  const logs = [];
+  try {
+    const files = fs.readdirSync(securityLogsPath);
+    
+    // Filter for only jpeg files and sort them newest first
+    const imageFiles = files
+      .filter(file => file.endsWith('.jpeg'))
+      .sort()
+      .reverse();
 
+    for (const file of imageFiles) {
+      const filePath = path.join(securityLogsPath, file);
+      const fileBuffer = fs.readFileSync(filePath);
+      
+      // Extract timestamp from filename
+      const timestamp = path.basename(file, '.jpeg').replace('intruder-', '');
+      
+      logs.push({
+        timestamp: new Date(timestamp).toLocaleString(), // Make it human-readable
+        imageData: fileBuffer.toString('base64'), // Convert image to Base64
+      });
+    }
+  } catch (error) {
+    console.error('Could not read security logs:', error);
+  }
+  return logs;
+});
 ipcMain.on('clear-session-password', () => {
     sessionPassword = null;
     console.log("Session password has been cleared (logout).");
