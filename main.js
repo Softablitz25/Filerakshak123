@@ -145,6 +145,7 @@ ipcMain.on('set-session-password', (event, password) => {
 });
 
 ipcMain.on('save-password', (event, data) => {
+  // Purani vault files ko clear karein
   try {
     const files = fs.readdirSync(vaultStoragePath);
     for (const file of files) {
@@ -154,9 +155,22 @@ ipcMain.on('save-password', (event, data) => {
     console.error('Could not clear old vault files:', err);
   }
 
+  // Purane security logs ko clear karein
+  try {
+    const logFiles = fs.readdirSync(securityLogsPath);
+    for (const file of logFiles) {
+        fs.unlinkSync(path.join(securityLogsPath, file));
+    }
+    console.log('Old security logs cleared successfully.');
+  } catch (err) {
+      console.error('Could not clear security logs:', err);
+  }
+
+  // Vault data file ko reset karein
   const emptyData = { Photos: [], PDFs: [], "Other Files": [] };
   writeVaultData(emptyData);
   
+  // Naya password aur config save karein
   const hashedPassword = bcrypt.hashSync(data.password, 10);
   const answerHash = bcrypt.hashSync(data.securityAnswer, 10);
 
