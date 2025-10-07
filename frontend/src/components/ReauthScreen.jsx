@@ -1,5 +1,3 @@
-// frontend/src/components/ReauthScreen.jsx
-
 import React, { useState, useEffect } from 'react';
 import { Lock, Eye, EyeOff, ArrowRight, ShieldX, ShieldAlert } from 'lucide-react';
 
@@ -45,18 +43,18 @@ export default function ReauthScreen({ onFormSubmit, onFullLock }) {
     const isMatch = await window.api.checkPassword(password);
 
     if (isMatch) {
-      onFormSubmit(password); // Password ko App.jsx mein bhejein
+      onFormSubmit(password);
     } else {
       const newAttempts = attempts + 1;
       setAttempts(newAttempts);
       setPassword('');
 
       if (newAttempts >= MAX_ATTEMPTS) {
-        setError(`Bahut baar galat password! ${30} second wait karein.`);
+       setError(`Too many wrong password attempts! Wait for ${30} seconds.`);
         setIsLocked(true);
         setLockoutTimer(30);
       } else {
-        setError(`Galat password! Aapke paas ${MAX_ATTEMPTS - newAttempts} attempt(s) bache hain.`);
+        setError(`Wrong Password! You have ${MAX_ATTEMPTS - newAttempts} attempts left.`);
       }
     }
   };
