@@ -36,6 +36,23 @@ if (!fs.existsSync(vaultDataPath)) {
 const readVaultData = () => JSON.parse(fs.readFileSync(vaultDataPath, 'utf-8'));
 const writeVaultData = (data) => fs.writeFileSync(vaultDataPath, JSON.stringify(data, null, 2));
 
+// --- NEW HELPER: Determine category based on file extension ---
+const getCategoryFromFile = (fileName) => { 
+    const extension = path.extname(fileName).toLowerCase(); 
+    switch (extension) { 
+        case '.jpg':
+        case '.jpeg':
+        case '.png':
+        case '.gif':
+        case '.webp':
+            return 'Photos'; 
+        case '.pdf':
+            return 'PDFs'; 
+        default:
+            return 'Other Files'; 
+    }
+};
+
 // --- Encryption and Decryption Functions ---
 const getKey = (password, salt) => {
     return crypto.pbkdf2Sync(password, salt, PBKDF2_ITERATIONS, KEY_LENGTH, 'sha512');
@@ -79,7 +96,6 @@ function createWindow() {
     },
   });
 
-  // YAHAN BADLAV KIYA GAYA HAI
   // Camera permission ko automatically allow karein
   const ses = win.webContents.session;
   ses.setPermissionRequestHandler((webContents, permission, callback) => {
@@ -231,14 +247,27 @@ ipcMain.handle('upload-file', async (event, { parentId, category }) => {
     const fileName = path.basename(filePath);
     const destinationPath = path.join(vaultStoragePath, fileName + ".enc");
     
+    const determinedCategory = getCategoryFromFile(fileName);
+    
+    // 1. EARLY EXIT VALIDATION: Galat category mein upload hone par turant error dekar ruk jao
+    if ((category === 'Photos' && determinedCategory !== 'Photos') || 
+        (category === 'PDFs' && determinedCategory !== 'PDFs')) {
+        
+        // Agar pehli hi file fail ho gayi, toh poore function se return ho jao
+        return { success: false, message: "Cannot upload here. File type mismatch." }; 
+    }
+    
+    // 2. DUPLICATE CHECK: Agar validation pass ho gaya, tab duplicate check karo
     if (fs.existsSync(destinationPath)) {
         skippedCount++;
         continue;
     }
     
+    // 3. FILE ENCRYPT & SAVE
     const fileBuffer = fs.readFileSync(filePath);
     const encryptedBuffer = encryptFile(fileBuffer, sessionPassword);
     fs.writeFileSync(destinationPath, encryptedBuffer);
+    fs.unlinkSync(filePath); // Original file delete ho jayegi
     addedCount++;
     
     const stats = fs.statSync(destinationPath);
@@ -251,15 +280,18 @@ ipcMain.handle('upload-file', async (event, { parentId, category }) => {
       parentId: parentId,
     };
 
-    if (vaultData[category]) {
-      vaultData[category].push(fileDetails);
+    // File ko uske type ke aadhar par sahi top-level category array mein store karein
+    if (vaultData[determinedCategory]) { 
+      vaultData[determinedCategory].push(fileDetails); 
     } else {
-      vaultData["Other Files"].push(fileDetails);
+      vaultData["Other Files"].push(fileDetails); 
     }
   }
 
+
   writeVaultData(vaultData);
 
+  // 4. FINAL SIMPLE MESSAGE LOGIC
   let message = "";
   if (addedCount > 0) message += `${addedCount} file(s) added successfully.`;
   if (skippedCount > 0) message += ` ${skippedCount} file(s) were skipped as duplicates.`;
