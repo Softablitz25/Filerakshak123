@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import {
   ShieldCheck, Image, FileText, FileArchive, UploadCloud, File,
   LogOut, MoreVertical, ArrowUpFromLine, FolderPlus,
-  FileEdit, Folder, ArrowLeft, ShieldAlert
+  FileEdit, Folder, ArrowLeft, ShieldAlert,Search
 } from "lucide-react";
 import CreateFolderModal from './CreateFolderModal';
 import RenameModal from "./RenameModal";
@@ -56,20 +56,36 @@ export default function VaultPage({ onLockVault }) {
   const [openMenuIndex, setOpenMenuIndex] = useState(null);
   const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
   const [fileToRename, setFileToRename] = useState(null);
-
+  const [searchQuery, setSearchQuery] = useState("");
+  //it  is  for  remove  alert ();
+const [notification, setNotification] = useState(''); 
   const loadVaultData = async () => {
     const data = await window.api.getVaultData();
     if (data) setFiles(data);
   };
 
+  const handleCategoryChange = (categoryName) => {
+    setActiveCategory(categoryName);
+    setCurrentParentId(categoryName); // Folder view ko reset karta hai
+    setSearchQuery(""); // Category badalne par search ko clear karta hai
+};
   useEffect(() => { loadVaultData(); }, []);
-  useEffect(() => { setCurrentParentId(activeCategory); }, [activeCategory]);
-  useEffect(() => {
+
+
+ useEffect(() => {
     if (files && files[activeCategory]) {
-        const filteredItems = files[activeCategory].filter(item => item.parentId === currentParentId);
+        // Pehle current folder ke items nikalo
+        let filteredItems = files[activeCategory].filter(item => item.parentId === currentParentId);
+
+        // Agar search query hai, to usse filter karo
+        if (searchQuery.trim() !== "") {
+            filteredItems = filteredItems.filter(item =>
+                item.name.toLowerCase().includes(searchQuery.toLowerCase())
+            );
+        }
         setItemsToDisplay(filteredItems);
     }
-  }, [files, activeCategory, currentParentId]);
+  }, [files, activeCategory, currentParentId, searchQuery]); 
 
   const handleCreateFolder = async (folderName) => {
     const result = await window.api.createFolder({ category: activeCategory, folderName, parentId: currentParentId });
@@ -135,19 +151,21 @@ export default function VaultPage({ onLockVault }) {
   };
 
   const submitRename = async (newName) => {
-    if (newName && fileToRename && newName.trim() !== "" && newName !== fileToRename.name) {
-      const result = await window.api.renameFile(fileToRename, newName);
-      if (result.success) {
-        alert(`Item renamed to "${newName}"`);
-        loadVaultData();
-      } else {
-        alert(`Error: ${result.message}`);
-      }
+  if (newName && fileToRename && newName.trim() !== "" && newName !== fileToRename.name) {
+    const result = await window.api.renameFile(fileToRename, newName);
+    if (result.success) {
+      setNotification(`Item renamed to "${newName}"`); // <-- alert() ko isse badlein
+      loadVaultData();
+    } else {
+      setNotification(`Error: ${result.message}`); // <-- alert() ko isse badlein
     }
-    setIsRenameModalOpen(false);
-    setFileToRename(null);
-  };
-  
+  }
+  setIsRenameModalOpen(false);
+  setFileToRename(null);
+
+  // 3 second baad notification hata dein
+  setTimeout(() => setNotification(''), 3000); 
+};
   const categories = [
     { name: "Photos", icon: Image, color: "text-blue-400" },
     { name: "PDFs", icon: FileText, color: "text-red-400" },
@@ -176,6 +194,12 @@ export default function VaultPage({ onLockVault }) {
       </aside>
 
       <main className="flex-1 flex flex-col overflow-hidden">
+        
+         {notification && (
+    <div className="bg-green-600 text-white text-center p-2 animate-pulse">
+      {notification}
+    </div>
+  )}
         {/* ✅ HEADER SECTION SE BUTTON HATA DIYA GAYA HAI */}
         {activeCategory === 'Security' ? (
           <SecurityLogViewer />
@@ -185,6 +209,19 @@ export default function VaultPage({ onLockVault }) {
           <div className="flex items-center gap-4">
             {currentParentId !== activeCategory && <button onClick={goBack} className="p-2 rounded-lg hover:bg-slate-800 transition-colors"><ArrowLeft size={20} className="text-slate-300" /></button>}
             <h2 className="text-xl font-semibold tracking-wide">{activeCategory}</h2>
+            {/* add a search functionality here */}
+             <div className="relative flex-grow max-w-xs ml-6">
+        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Search size={18} className="text-slate-500" />
+        </div>
+        <input
+            type="text"
+            placeholder="Search in this folder..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-slate-800/80 border border-slate-700 rounded-lg pl-10 pr-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+        />
+    </div>
           </div>
           <div className="flex items-center gap-4">
             <button onClick={() => setIsCreateFolderModalOpen(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-800/80 text-slate-300 hover:bg-slate-700/80 hover:text-white transition-all font-semibold"><FolderPlus size={18} /> New Folder</button>
