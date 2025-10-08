@@ -16,6 +16,10 @@ function App() {
   
   // YEH EK COUNTER HAI JO LOGIN SCREEN KO REFRESH KAREGA
   const [viewKey, setViewKey] = useState(0);
+     
+  //this  is  for  notification  purpose 
+   const [notification, setNotification] = useState('');
+  const [notificationType, setNotificationType] = useState('success');
 
   // YEH FUNCTION HAR BAAR LOGIN SCREEN KO NAYE SIRE SE BANAYEGA
   const navigateToOpen = () => {
@@ -35,6 +39,15 @@ function App() {
     window.api.clearSessionPassword();
     setCurrentView('welcome');
   };
+
+  const showNotification = (message, type = 'success', duration = 3000) => {
+    setNotification(message);
+    setNotificationType(type);
+
+    setTimeout(() => {
+        setNotification('');
+    }, duration);
+};
 
   useEffect(() => {
     const checkVault = async () => {
@@ -76,6 +89,17 @@ function App() {
   }
 
   return (
+
+//  {notification && (
+//             <div
+//                 className={`fixed top-5 left-1/2 -translate-x-1/2 px-6 py-3 rounded-lg text-white shadow-lg z-50 ${
+//                     notificationType === 'success' ? 'bg-green-600' : 'bg-red-600'
+//                 }`}
+//             >
+//                 {notification}
+//             </div>
+//         )}
+
     // YAHA BHI KEY KA ISTEMAAL HO RAHA HAI
     <Layout viewKey={`${currentView}-${viewKey}`}>
       {currentView === 'welcome' && (

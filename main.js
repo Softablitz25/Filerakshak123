@@ -106,7 +106,7 @@ function createWindow() {
     }
   });
 
-
+ win.setMenu(null);
   win.loadURL('http://localhost:5173');
   win.webContents.openDevTools();
 }
@@ -345,19 +345,38 @@ ipcMain.handle('get-file-as-data-url', async (event, filePath) => {
         return null;
     }
 });
-
 ipcMain.handle('rename-file', async (event, itemToRename, newName) => {
     const vaultData = readVaultData();
     for (const cat in vaultData) {
         const item = vaultData[cat].find(i => i.id === itemToRename.id);
         if (item) {
-            if (item.type === 'file') {
-                 const oldPath = item.path;
-                 const newPath = path.join(path.dirname(oldPath), newName + ".enc");
-                 fs.renameSync(oldPath, newPath);
-                 item.path = newPath;
+          
+            if (item.type === 'folder') {
+                item.name = newName;
+            } 
+           
+            else if (item.type === 'file') {
+                const oldPath = item.path;
+                const originalExtension = path.extname(item.name); // e.g., ".pdf"
+                let finalNewName = newName;
+
+                
+                if (path.extname(newName) === '' && originalExtension) {
+                    finalNewName += originalExtension;
+                }
+
+                const newPath = path.join(path.dirname(oldPath), finalNewName + ".enc");
+                
+                try {
+                    fs.renameSync(oldPath, newPath);
+                    item.path = newPath;
+                    item.name = finalNewName; 
+                } catch (error) {
+                    console.error("File rename failed:", error);
+                    return { success: false, message: 'Failed to rename file on disk.' };
+                }
             }
-            item.name = newName;
+            
             writeVaultData(vaultData);
             return { success: true };
         }
