@@ -1,5 +1,3 @@
-// frontend/src/App.jsx
-
 import React, { useState, useEffect } from 'react';
 import Layout from './components/Layout.jsx';
 import WelcomeScreen from './components/WelcomeScreen.jsx';
@@ -56,7 +54,7 @@ function App() {
       const exists = await window.api.vaultExists?.();
       window.api.clearSessionPassword();
       if (exists) {
-        navigateToOpen(); // Naye function ka istemaal karein
+        navigateToOpen(); 
       } else {
         setCurrentView('create');
       }

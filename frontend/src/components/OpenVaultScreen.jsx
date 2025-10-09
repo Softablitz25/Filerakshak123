@@ -43,7 +43,7 @@ export default function OpenVaultScreen({ onBackClick, onFormSubmit, onForgotPas
     try {
       // 1. Webcam access ka request karein
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      
+  
       const video = document.createElement('video');
       video.srcObject = stream;
       

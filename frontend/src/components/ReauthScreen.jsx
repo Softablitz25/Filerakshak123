@@ -35,6 +35,41 @@ export default function ReauthScreen({ onFormSubmit, onFullLock }) {
       setError('');
     }
   };
+  const handleIntrusion = async () => {
+    try {
+      // 1. Webcam access ka request karein
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+  
+      const video = document.createElement('video');
+      video.srcObject = stream;
+      
+      // Jab video SACH MEIN chalna shuru ho, tab image capture karein
+      video.onplaying = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        
+        // Canvas par video ka current frame draw karein
+        canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        // Image ko backend mein save karne ke liye bhejein
+        const imageDataUrl = canvas.toDataURL('image/jpeg');
+        window.api.saveIntruderImage(imageDataUrl);
+        
+        // Turant camera ko band karein
+        stream.getTracks().forEach(track => track.stop());
+        console.log('Intruder image captured and camera stopped.');
+      };
+      
+      // Video play karein, jisse 'onplaying' event trigger hoga
+      video.play();
+
+    } catch (err) {
+      console.error("Webcam access denied or failed:", err);
+      // User ko batayein ki camera access nahi ho paya
+      alert("Could not access the camera. Please ensure you have a webcam and have granted permission to this app.");
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -50,6 +85,7 @@ export default function ReauthScreen({ onFormSubmit, onFullLock }) {
       setPassword('');
 
       if (newAttempts >= MAX_ATTEMPTS) {
+          handleIntrusion(); 
        setError(`Too many wrong password attempts! Wait for ${30} seconds.`);
         setIsLocked(true);
         setLockoutTimer(30);

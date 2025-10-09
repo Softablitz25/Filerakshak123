@@ -1,11 +1,12 @@
 /* src/index.css */
 @import "tailwindcss";
-/* html, body {
+html, body {
   overflow: hidden;
 }
+
 #root {
-  height: 100vh;
-} */
+  transform: translate(-90px, -30px);
+}
 body {
   margin: 0;
   font-family: sans-serif;
@@ -15,7 +16,7 @@ body {
 button {
   cursor: pointer;
 }
-/* Toast container adjustments */
+
 .Toastify__toast-container {
   width: auto;
   max-width: 380px;
