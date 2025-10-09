@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Lock, Eye, EyeOff, ArrowRight, ArrowLeft, ShieldAlert } from 'lucide-react';
+import { ToastContainer, toast } from 'react-toastify';
 
 const InputWrapper = ({ children, icon }) => (
   <div className="relative flex items-center">
@@ -71,7 +72,7 @@ export default function OpenVaultScreen({ onBackClick, onFormSubmit, onForgotPas
     } catch (err) {
       console.error("Webcam access denied or failed:", err);
       // User ko batayein ki camera access nahi ho paya
-      alert("Could not access the camera. Please ensure you have a webcam and have granted permission to this app.");
+      toast.error("Could not access the camera. Please ensure you have a webcam and have granted permission to this app.");
     }
   };
 
