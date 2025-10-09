@@ -25,7 +25,7 @@ if (!fs.existsSync(vaultStoragePath)) {
   fs.mkdirSync(vaultStoragePath);
 }
 // this is for security logs like images captured on intrusion
-if (!fs.existsSync(securityLogsPath)) { 
+if (!fs.existsSync(securityLogsPath)) {
   fs.mkdirSync(securityLogsPath);
 }
 if (!fs.existsSync(vaultDataPath)) {
@@ -37,51 +37,51 @@ const readVaultData = () => JSON.parse(fs.readFileSync(vaultDataPath, 'utf-8'));
 const writeVaultData = (data) => fs.writeFileSync(vaultDataPath, JSON.stringify(data, null, 2));
 
 // --- NEW HELPER: Determine category based on file extension ---
-const getCategoryFromFile = (fileName) => { 
-    const extension = path.extname(fileName).toLowerCase(); 
-    switch (extension) { 
-        case '.jpg':
-        case '.jpeg':
-        case '.png':
-        case '.gif':
-        case '.webp':
-            return 'Photos'; 
-        case '.pdf':
-            return 'PDFs'; 
-        default:
-            return 'Other Files'; 
-    }
+const getCategoryFromFile = (fileName) => {
+  const extension = path.extname(fileName).toLowerCase();
+  switch (extension) {
+    case '.jpg':
+    case '.jpeg':
+    case '.png':
+    case '.gif':
+    case '.webp':
+      return 'Photos';
+    case '.pdf':
+      return 'PDFs';
+    default:
+      return 'Other Files';
+  }
 };
 
 // --- Encryption and Decryption Functions ---
 const getKey = (password, salt) => {
-    return crypto.pbkdf2Sync(password, salt, PBKDF2_ITERATIONS, KEY_LENGTH, 'sha512');
+  return crypto.pbkdf2Sync(password, salt, PBKDF2_ITERATIONS, KEY_LENGTH, 'sha512');
 };
 
 const encryptFile = (buffer, password) => {
-    const salt = crypto.randomBytes(SALT_LENGTH);
-    const key = getKey(password, salt);
-    const iv = crypto.randomBytes(IV_LENGTH);
-    const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
-    const encrypted = Buffer.concat([cipher.update(buffer), cipher.final()]);
-    const tag = cipher.getAuthTag();
-    return Buffer.concat([salt, iv, tag, encrypted]);
+  const salt = crypto.randomBytes(SALT_LENGTH);
+  const key = getKey(password, salt);
+  const iv = crypto.randomBytes(IV_LENGTH);
+  const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
+  const encrypted = Buffer.concat([cipher.update(buffer), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return Buffer.concat([salt, iv, tag, encrypted]);
 };
 
 const decryptFile = (encryptedBuffer, password) => {
-    try {
-        const salt = encryptedBuffer.slice(0, SALT_LENGTH);
-        const iv = encryptedBuffer.slice(SALT_LENGTH, SALT_LENGTH + IV_LENGTH);
-        const tag = encryptedBuffer.slice(SALT_LENGTH + IV_LENGTH, SALT_LENGTH + IV_LENGTH + TAG_LENGTH);
-        const encrypted = encryptedBuffer.slice(SALT_LENGTH + IV_LENGTH + TAG_LENGTH);
-        const key = getKey(password, salt);
-        const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
-        decipher.setAuthTag(tag);
-        return Buffer.concat([decipher.update(encrypted), decipher.final()]);
-    } catch (error) {
-        console.error("Decryption failed:", error.message);
-        return null;
-    }
+  try {
+    const salt = encryptedBuffer.slice(0, SALT_LENGTH);
+    const iv = encryptedBuffer.slice(SALT_LENGTH, SALT_LENGTH + IV_LENGTH);
+    const tag = encryptedBuffer.slice(SALT_LENGTH + IV_LENGTH, SALT_LENGTH + IV_LENGTH + TAG_LENGTH);
+    const encrypted = encryptedBuffer.slice(SALT_LENGTH + IV_LENGTH + TAG_LENGTH);
+    const key = getKey(password, salt);
+    const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
+    decipher.setAuthTag(tag);
+    return Buffer.concat([decipher.update(encrypted), decipher.final()]);
+  } catch (error) {
+    console.error("Decryption failed:", error.message);
+    return null;
+  }
 };
 
 
@@ -106,7 +106,7 @@ function createWindow() {
     }
   });
 
- win.setMenu(null);
+  win.setMenu(null);
   win.loadURL('http://localhost:5173');
   win.webContents.openDevTools();
 }
@@ -115,18 +115,18 @@ app.whenReady().then(createWindow);
 
 // --- IPC Handlers ---
 // hnadler for the image capture....
- ipcMain.on('save-intruder-image', (event, imageDataUrl) => {
+ipcMain.on('save-intruder-image', (event, imageDataUrl) => {
   try {
     const timestamp = new Date().toISOString().replace(/:/g, '-');
     const imagePath = path.join(securityLogsPath, `intruder-${timestamp}.jpeg`);
     const logPath = path.join(securityLogsPath, 'security_alerts.log');
-    
+
     const data = imageDataUrl.replace(/^data:image\/\w+;base64,/, "");
     const buffer = Buffer.from(data, 'base64');
-    
+
     fs.writeFileSync(imagePath, buffer);
     console.log(`Intruder image saved to: ${imagePath}`);
-    
+
     const logEntry = `[${new Date().toLocaleString()}] - Maximum failed login attempts detected. Image captured: ${path.basename(imagePath)}\n`;
     fs.appendFileSync(logPath, logEntry);
 
@@ -137,24 +137,23 @@ app.whenReady().then(createWindow);
 ipcMain.handle('get-security-logs', async () => {
   const logs = [];
   try {
-    const files = fs.readdirSync(securityLogsPath);
-    
-    // Filter for only jpeg files and sort them newest first
+       const files = fs.readdirSync(securityLogsPath);
     const imageFiles = files
       .filter(file => file.endsWith('.jpeg'))
       .sort()
       .reverse();
-
     for (const file of imageFiles) {
       const filePath = path.join(securityLogsPath, file);
-      const fileBuffer = fs.readFileSync(filePath);
-      
-      // Extract timestamp from filename
-      const timestamp = path.basename(file, '.jpeg').replace('intruder-', '');
+   const fileBuffer = fs.readFileSync(filePath);
+      const nonStandardTimestamp = path.basename(file, '.jpeg').replace('intruder-', '');
+      const datePart = nonStandardTimestamp.substring(0, 10);
+      const timePart = nonStandardTimestamp.substring(11).replace(/-/g, ':');
+      const validTimestampISO = `${datePart}T${timePart}`;
       
       logs.push({
-        timestamp: new Date(timestamp).toLocaleString(), // Make it human-readable
-        imageData: fileBuffer.toString('base64'), // Convert image to Base64
+        timestamp: validTimestampISO, 
+        imageData: fileBuffer.toString('base64'),
+           filename: file
       });
     }
   } catch (error) {
@@ -162,14 +161,30 @@ ipcMain.handle('get-security-logs', async () => {
   }
   return logs;
 });
+// TO DELETE THE SECUIRT LOG IMAGES 
+ipcMain.handle('delete-security-log', async (event, filename) => {
+  try {
+    if (!filename || filename.includes('..')) {
+      throw new Error('Invalid filename.');
+    }
+    const filePath = path.join(securityLogsPath, filename);
+    fs.unlinkSync(filePath);
+    console.log(`Deleted security log: ${filename}`);
+    return { success: true };
+  } catch (error) {
+    console.error(`Failed to delete log ${filename}:`, error);
+    return { success: false, error: error.message };
+  }
+});
+
 ipcMain.on('clear-session-password', () => {
-    sessionPassword = null;
-    console.log("Session password has been cleared (logout).");
+  sessionPassword = null;
+  console.log("Session password has been cleared (logout).");
 });
 
 ipcMain.on('set-session-password', (event, password) => {
-    sessionPassword = password;
-    console.log("Session password has been set.");
+  sessionPassword = password;
+  console.log("Session password has been set.");
 });
 
 ipcMain.on('save-password', (event, data) => {
@@ -187,17 +202,17 @@ ipcMain.on('save-password', (event, data) => {
   try {
     const logFiles = fs.readdirSync(securityLogsPath);
     for (const file of logFiles) {
-        fs.unlinkSync(path.join(securityLogsPath, file));
+      fs.unlinkSync(path.join(securityLogsPath, file));
     }
     console.log('Old security logs cleared successfully.');
   } catch (err) {
-      console.error('Could not clear security logs:', err);
+    console.error('Could not clear security logs:', err);
   }
 
   // Vault data file ko reset karein
   const emptyData = { Photos: [], PDFs: [], "Other Files": [] };
   writeVaultData(emptyData);
-  
+
   // Naya password aur config save karein
   const hashedPassword = bcrypt.hashSync(data.password, 10);
   const answerHash = bcrypt.hashSync(data.securityAnswer, 10);
@@ -229,7 +244,7 @@ ipcMain.handle('get-vault-data', () => {
 
 ipcMain.handle('upload-file', async (event, { parentId, category }) => {
   if (!sessionPassword) {
-      return { success: false, message: "Security Error: No session password." };
+    return { success: false, message: "Security Error: No session password." };
   }
   const { canceled, filePaths } = await dialog.showOpenDialog({
     properties: ['openFile', 'multiSelections']
@@ -246,30 +261,30 @@ ipcMain.handle('upload-file', async (event, { parentId, category }) => {
   for (const filePath of filePaths) {
     const fileName = path.basename(filePath);
     const destinationPath = path.join(vaultStoragePath, fileName + ".enc");
-    
+
     const determinedCategory = getCategoryFromFile(fileName);
-    
+
     // 1. EARLY EXIT VALIDATION: Galat category mein upload hone par turant error dekar ruk jao
-    if ((category === 'Photos' && determinedCategory !== 'Photos') || 
-        (category === 'PDFs' && determinedCategory !== 'PDFs')) {
-        
-        // Agar pehli hi file fail ho gayi, toh poore function se return ho jao
-        return { success: false, message: "Cannot upload here. File type mismatch." }; 
+    if ((category === 'Photos' && determinedCategory !== 'Photos') ||
+      (category === 'PDFs' && determinedCategory !== 'PDFs')) {
+
+      // Agar pehli hi file fail ho gayi, toh poore function se return ho jao
+      return { success: false, message: "Cannot upload here. File type mismatch." };
     }
-    
+
     // 2. DUPLICATE CHECK: Agar validation pass ho gaya, tab duplicate check karo
     if (fs.existsSync(destinationPath)) {
-        skippedCount++;
-        continue;
+      skippedCount++;
+      continue;
     }
-    
+
     // 3. FILE ENCRYPT & SAVE
     const fileBuffer = fs.readFileSync(filePath);
     const encryptedBuffer = encryptFile(fileBuffer, sessionPassword);
     fs.writeFileSync(destinationPath, encryptedBuffer);
     fs.unlinkSync(filePath); // Original file delete ho jayegi
     addedCount++;
-    
+
     const stats = fs.statSync(destinationPath);
     const fileDetails = {
       id: `file-${Date.now()}-${Math.random()}`,
@@ -281,10 +296,10 @@ ipcMain.handle('upload-file', async (event, { parentId, category }) => {
     };
 
     // File ko uske type ke aadhar par sahi top-level category array mein store karein
-    if (vaultData[determinedCategory]) { 
-      vaultData[determinedCategory].push(fileDetails); 
+    if (vaultData[determinedCategory]) {
+      vaultData[determinedCategory].push(fileDetails);
     } else {
-      vaultData["Other Files"].push(fileDetails); 
+      vaultData["Other Files"].push(fileDetails);
     }
   }
 
@@ -295,119 +310,119 @@ ipcMain.handle('upload-file', async (event, { parentId, category }) => {
   let message = "";
   if (addedCount > 0) message += `${addedCount} file(s) added successfully.`;
   if (skippedCount > 0) message += ` ${skippedCount} file(s) were skipped as duplicates.`;
-  
+
   return { success: addedCount > 0, message: message.trim() };
 });
 
 ipcMain.handle('open-file', async (event, filePath) => {
-    if (!sessionPassword) return { success: false, message: "Security Error." };
-    if (!filePath || !filePath.startsWith(vaultStoragePath)) return { success: false, message: "Invalid file path." };
+  if (!sessionPassword) return { success: false, message: "Security Error." };
+  if (!filePath || !filePath.startsWith(vaultStoragePath)) return { success: false, message: "Invalid file path." };
 
-    const encryptedBuffer = fs.readFileSync(filePath);
-    const decryptedBuffer = decryptFile(encryptedBuffer, sessionPassword);
+  const encryptedBuffer = fs.readFileSync(filePath);
+  const decryptedBuffer = decryptFile(encryptedBuffer, sessionPassword);
 
-    if (!decryptedBuffer) {
-        return { success: false, message: "Decryption failed. Incorrect password?" };
-    }
+  if (!decryptedBuffer) {
+    return { success: false, message: "Decryption failed. Incorrect password?" };
+  }
 
-    const tempDir = path.join(app.getPath('temp'), 'FileRakshak');
-    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
-    
-    const originalName = path.basename(filePath, '.enc');
-    const tempFilePath = path.join(tempDir, originalName);
+  const tempDir = path.join(app.getPath('temp'), 'FileRakshak');
+  if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
 
-    fs.writeFileSync(tempFilePath, decryptedBuffer);
+  const originalName = path.basename(filePath, '.enc');
+  const tempFilePath = path.join(tempDir, originalName);
 
-    const error = await shell.openPath(tempFilePath);
-    if (error) return { success: false, message: error };
-    return { success: true };
+  fs.writeFileSync(tempFilePath, decryptedBuffer);
+
+  const error = await shell.openPath(tempFilePath);
+  if (error) return { success: false, message: error };
+  return { success: true };
 });
 
 ipcMain.handle('get-file-as-data-url', async (event, filePath) => {
-    if (!sessionPassword) return null;
-    try {
-        const encryptedBuffer = fs.readFileSync(filePath);
-        const decryptedBuffer = decryptFile(encryptedBuffer, sessionPassword);
-        if (!decryptedBuffer) return null;
+  if (!sessionPassword) return null;
+  try {
+    const encryptedBuffer = fs.readFileSync(filePath);
+    const decryptedBuffer = decryptFile(encryptedBuffer, sessionPassword);
+    if (!decryptedBuffer) return null;
 
-        const fileExtension = path.extname(path.basename(filePath, '.enc')).substring(1).toLowerCase();
-        let mimeType = 'application/octet-stream';
+    const fileExtension = path.extname(path.basename(filePath, '.enc')).substring(1).toLowerCase();
+    let mimeType = 'application/octet-stream';
 
-        if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(fileExtension)) {
-            mimeType = `image/${fileExtension}`;
-        } else if (fileExtension === 'pdf') {
-            mimeType = 'application/pdf';
-        }
-
-        return `data:${mimeType};base64,${decryptedBuffer.toString('base64')}`;
-    } catch (error) {
-        console.error("Error creating data URL:", error);
-        return null;
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(fileExtension)) {
+      mimeType = `image/${fileExtension}`;
+    } else if (fileExtension === 'pdf') {
+      mimeType = 'application/pdf';
     }
+
+    return `data:${mimeType};base64,${decryptedBuffer.toString('base64')}`;
+  } catch (error) {
+    console.error("Error creating data URL:", error);
+    return null;
+  }
 });
 ipcMain.handle('rename-file', async (event, itemToRename, newName) => {
-    const vaultData = readVaultData();
-    for (const cat in vaultData) {
-        const item = vaultData[cat].find(i => i.id === itemToRename.id);
-        if (item) {
-          
-            if (item.type === 'folder') {
-                item.name = newName;
-            } 
-           
-            else if (item.type === 'file') {
-                const oldPath = item.path;
-                const originalExtension = path.extname(item.name); // e.g., ".pdf"
-                let finalNewName = newName;
+  const vaultData = readVaultData();
+  for (const cat in vaultData) {
+    const item = vaultData[cat].find(i => i.id === itemToRename.id);
+    if (item) {
 
-                
-                if (path.extname(newName) === '' && originalExtension) {
-                    finalNewName += originalExtension;
-                }
+      if (item.type === 'folder') {
+        item.name = newName;
+      }
 
-                const newPath = path.join(path.dirname(oldPath), finalNewName + ".enc");
-                
-                try {
-                    fs.renameSync(oldPath, newPath);
-                    item.path = newPath;
-                    item.name = finalNewName; 
-                } catch (error) {
-                    console.error("File rename failed:", error);
-                    return { success: false, message: 'Failed to rename file on disk.' };
-                }
-            }
-            
-            writeVaultData(vaultData);
-            return { success: true };
+      else if (item.type === 'file') {
+        const oldPath = item.path;
+        const originalExtension = path.extname(item.name); // e.g., ".pdf"
+        let finalNewName = newName;
+
+
+        if (path.extname(newName) === '' && originalExtension) {
+          finalNewName += originalExtension;
         }
+
+        const newPath = path.join(path.dirname(oldPath), finalNewName + ".enc");
+
+        try {
+          fs.renameSync(oldPath, newPath);
+          item.path = newPath;
+          item.name = finalNewName;
+        } catch (error) {
+          console.error("File rename failed:", error);
+          return { success: false, message: 'Failed to rename file on disk.' };
+        }
+      }
+
+      writeVaultData(vaultData);
+      return { success: true };
     }
-    return { success: false, message: 'Item not found.' };
+  }
+  return { success: false, message: 'Item not found.' };
 });
 
 ipcMain.handle('export-file', async (event, file) => {
-   if (!sessionPassword) return { success: false, message: "Security Error." };
-   const { filePath } = await dialog.showSaveDialog({ title: 'Export File', defaultPath: file.name });
-   if (filePath) {
-       try {
-           const encryptedBuffer = fs.readFileSync(file.path);
-           const decryptedBuffer = decryptFile(encryptedBuffer, sessionPassword);
-           if (!decryptedBuffer) return { success: false, message: 'Decryption failed.' };
+  if (!sessionPassword) return { success: false, message: "Security Error." };
+  const { filePath } = await dialog.showSaveDialog({ title: 'Export File', defaultPath: file.name });
+  if (filePath) {
+    try {
+      const encryptedBuffer = fs.readFileSync(file.path);
+      const decryptedBuffer = decryptFile(encryptedBuffer, sessionPassword);
+      if (!decryptedBuffer) return { success: false, message: 'Decryption failed.' };
 
-           fs.writeFileSync(filePath, decryptedBuffer);
-           fs.unlinkSync(file.path);
-           
-           const vaultData = readVaultData();
-           Object.keys(vaultData).forEach(cat => {
-               vaultData[cat] = vaultData[cat].filter(f => f.id !== file.id);
-           });
-           writeVaultData(vaultData);
-           return { success: true };
-       } catch (error) {
-           console.error('File export failed:', error);
-           return { success: false, message: 'Failed to export file.' };
-       }
-   }
-   return { success: false, message: 'Export cancelled.' };
+      fs.writeFileSync(filePath, decryptedBuffer);
+      fs.unlinkSync(file.path);
+
+      const vaultData = readVaultData();
+      Object.keys(vaultData).forEach(cat => {
+        vaultData[cat] = vaultData[cat].filter(f => f.id !== file.id);
+      });
+      writeVaultData(vaultData);
+      return { success: true };
+    } catch (error) {
+      console.error('File export failed:', error);
+      return { success: false, message: 'Failed to export file.' };
+    }
+  }
+  return { success: false, message: 'Export cancelled.' };
 });
 
 ipcMain.handle('create-folder', (event, { category, folderName, parentId }) => {

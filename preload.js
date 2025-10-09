@@ -29,4 +29,5 @@ contextBridge.exposeInMainWorld("api", {
   setSessionPassword: (password) => ipcRenderer.send("set-session-password", password),
    saveIntruderImage: (imageDataUrl) => ipcRenderer.send('save-intruder-image', imageDataUrl),
     getSecurityLogs: () => ipcRenderer.invoke('get-security-logs'),
+     deleteSecurityLog: (filename) => ipcRenderer.invoke('delete-security-log', filename),
 });
