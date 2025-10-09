@@ -28,30 +28,50 @@ if (!fs.existsSync(vaultStoragePath)) {
 if (!fs.existsSync(securityLogsPath)) {
   fs.mkdirSync(securityLogsPath);
 }
+// If vault-data.json doesn't exist, create it with the new categories
 if (!fs.existsSync(vaultDataPath)) {
-  fs.writeFileSync(vaultDataPath, JSON.stringify({ Photos: [], PDFs: [], "Other Files": [] }));
+  fs.writeFileSync(vaultDataPath, JSON.stringify({ Photos: [], PDFs: [], Audio: [], Video: [], "Other Files": [] }));
 }
 
 // --- Helper Functions ---
 const readVaultData = () => JSON.parse(fs.readFileSync(vaultDataPath, 'utf-8'));
 const writeVaultData = (data) => fs.writeFileSync(vaultDataPath, JSON.stringify(data, null, 2));
 
-// --- NEW HELPER: Determine category based on file extension ---
+// --- Corrected file categorization ---
 const getCategoryFromFile = (fileName) => {
   const extension = path.extname(fileName).toLowerCase();
   switch (extension) {
+    // Photo formats
     case '.jpg':
     case '.jpeg':
     case '.png':
     case '.gif':
     case '.webp':
       return 'Photos';
+    // PDF documents
     case '.pdf':
       return 'PDFs';
+    // Audio formats
+    case '.mp3':
+    case '.wav':
+    case '.aac':
+    case '.m4a':
+    case '.flac':
+      return 'Audio';
+    // Video formats
+    case '.mp4':
+    case '.mov':
+    case '.avi':
+    case '.mkv':
+    case '.webm':
+    case '.ogg':
+      return 'Video';
+    // Default for any other file type
     default:
       return 'Other Files';
   }
 };
+
 
 // --- Encryption and Decryption Functions ---
 const getKey = (password, salt) => {
@@ -210,7 +230,7 @@ ipcMain.on('save-password', (event, data) => {
   }
 
   // Vault data file ko reset karein
-  const emptyData = { Photos: [], PDFs: [], "Other Files": [] };
+  const emptyData = { Photos: [], PDFs: [], Audio: [], Video: [], "Other Files": [] };
   writeVaultData(emptyData);
 
   // Naya password aur config save karein
@@ -266,7 +286,9 @@ ipcMain.handle('upload-file', async (event, { parentId, category }) => {
 
     // 1. EARLY EXIT VALIDATION: Galat category mein upload hone par turant error dekar ruk jao
     if ((category === 'Photos' && determinedCategory !== 'Photos') ||
-      (category === 'PDFs' && determinedCategory !== 'PDFs')) {
+      (category === 'PDFs' && determinedCategory !== 'PDFs') || 
+      (category === 'Audio' && determinedCategory !== 'Audio') || 
+      (category === 'Video' && determinedCategory !== 'Video') ) {
 
       // Agar pehli hi file fail ho gayi, toh poore function se return ho jao
       return { success: false, message: "Cannot upload here. File type mismatch." };
@@ -295,12 +317,13 @@ ipcMain.handle('upload-file', async (event, { parentId, category }) => {
       parentId: parentId,
     };
 
-    // File ko uske type ke aadhar par sahi top-level category array mein store karein
-    if (vaultData[determinedCategory]) {
-      vaultData[determinedCategory].push(fileDetails);
-    } else {
-      vaultData["Other Files"].push(fileDetails);
+    // --- BUG FIX: This logic correctly handles old vaults ---
+    // It checks if a category like 'Audio' or 'Video' exists in the data file.
+    // If not, it creates it before adding the file.
+    if (!vaultData[determinedCategory]) {
+      vaultData[determinedCategory] = [];
     }
+    vaultData[determinedCategory].push(fileDetails);
   }
 
 
@@ -352,6 +375,10 @@ ipcMain.handle('get-file-as-data-url', async (event, filePath) => {
       mimeType = `image/${fileExtension}`;
     } else if (fileExtension === 'pdf') {
       mimeType = 'application/pdf';
+    } else if (['mp3', 'wav', 'ogg', 'aac', 'm4a'].includes(fileExtension)) {
+      mimeType = `audio/${fileExtension === 'mp3' ? 'mpeg' : fileExtension}`;
+    } else if (['mp4', 'webm', 'mov', 'ogg'].includes(fileExtension)) {
+      mimeType = `video/${fileExtension}`;
     }
 
     return `data:${mimeType};base64,${decryptedBuffer.toString('base64')}`;
@@ -360,6 +387,7 @@ ipcMain.handle('get-file-as-data-url', async (event, filePath) => {
     return null;
   }
 });
+
 ipcMain.handle('rename-file', async (event, itemToRename, newName) => {
   const vaultData = readVaultData();
   for (const cat in vaultData) {
@@ -477,3 +505,4 @@ ipcMain.handle('reset-password', (event, newPassword) => {
 });
 
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+

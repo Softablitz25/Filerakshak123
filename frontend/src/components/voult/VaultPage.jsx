@@ -2,13 +2,15 @@ import React, { useState, useEffect } from "react";
 import {
   ShieldCheck, Image, FileText, FileArchive, UploadCloud, File,
   LogOut, MoreVertical, ArrowUpFromLine, FolderPlus,
-  FileEdit, Folder, ArrowLeft, ShieldAlert, Search
+  FileEdit, Folder, ArrowLeft, ShieldAlert, Search,
+  Music,
+  Video
 } from "lucide-react";
-import CreateFolderModal from './CreateFolderModal';
-import RenameModal from "./RenameModal";
-import SecurityLogViewer from "../SecurityLogViewer";
+import CreateFolderModal from "./CreateFolderModal.jsx";
+import RenameModal from "./RenameModal.jsx";
+import SecurityLogViewer from "../SecurityLogViewer.jsx";
 import { ToastContainer, toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+// CSS ko App.jsx mein import kiya gaya hai, yahan dobara karne ki zaroorat nahi hai
 
 const FilePreview = ({ file }) => {
   const [previewUrl, setPreviewUrl] = useState(null);
@@ -50,38 +52,46 @@ const FilePreview = ({ file }) => {
 export default function VaultPage({ onLockVault }) {
   const [activeCategory, setActiveCategory] = useState("Photos");
   const [currentParentId, setCurrentParentId] = useState("Photos");
-  const [files, setFiles] = useState({ Photos: [], PDFs: [], "Other Files": [] });
+  // Initialize state with all possible categories
+  const [files, setFiles] = useState({ Photos: [], PDFs: [], Audio: [], Video: [], "Other Files": [] });
   const [itemsToDisplay, setItemsToDisplay] = useState([]);
   const [isCreateFolderModalOpen, setIsCreateFolderModalOpen] = useState(false);
   const [openMenuIndex, setOpenMenuIndex] = useState(null);
   const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
   const [fileToRename, setFileToRename] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
+  
   const loadVaultData = async () => {
     const data = await window.api.getVaultData();
     if (data) setFiles(data);
   };
 
+  // --- BUG FIX: Clear displayed items immediately on category change ---
   const handleCategoryChange = (categoryName) => {
+    if (activeCategory === categoryName) return; // Don't do anything if the same category is clicked
+    setItemsToDisplay([]); // Immediately clear the view
     setActiveCategory(categoryName);
-    setCurrentParentId(categoryName); // Folder view ko reset karta hai
-    setSearchQuery(""); // Category badalne par search ko clear karta hai
+    setCurrentParentId(categoryName); // Reset to the root of the new category
+    setSearchQuery(""); // Clear search query on category change
   };
+  
   useEffect(() => { loadVaultData(); }, []);
-
 
   useEffect(() => {
     if (files && files[activeCategory]) {
-      // Pehle current folder ke items nikalo
+      // Filter items for the current folder
       let filteredItems = files[activeCategory].filter(item => item.parentId === currentParentId);
 
-      // Agar search query hai, to usse filter karo
+      // If there's a search query, filter further
       if (searchQuery.trim() !== "") {
         filteredItems = filteredItems.filter(item =>
           item.name.toLowerCase().includes(searchQuery.toLowerCase())
         );
       }
       setItemsToDisplay(filteredItems);
+    } else {
+        // If the category doesn't exist in the files state, show nothing
+        setItemsToDisplay([]);
     }
   }, [files, activeCategory, currentParentId, searchQuery]);
 
@@ -102,10 +112,10 @@ export default function VaultPage({ onLockVault }) {
       parentId: currentParentId,
       category: activeCategory
     });
-    if (result.success) {
-      toast.success(result.message || "File(s) uploaded successfully!");
+    if (result.success && result.message) {
+      toast.success(result.message);
       loadVaultData();
-    } else if (result.message) {
+    } else if (!result.success && result.message) {
       toast.error(result.message);
     }
   };
@@ -163,10 +173,13 @@ export default function VaultPage({ onLockVault }) {
     setIsRenameModalOpen(false);
     setFileToRename(null);
   };
+  
   const categories = [
     { name: "Photos", icon: Image, color: "text-blue-400" },
     { name: "PDFs", icon: FileText, color: "text-red-400" },
-    { name: "Other Files", icon: FileArchive, color: "text-yellow-400" },
+    { name: "Video", icon: Video, color: "text-fuchsia-400" },
+    { name: "Audio", icon: Music, color: "text-orange-400" },
+    { name: "Other Files", icon: FileArchive, color: "text-slate-400" },
   ];
 
   return (
@@ -179,11 +192,11 @@ export default function VaultPage({ onLockVault }) {
         <h3 className="text-sm uppercase text-slate-400 mb-4 tracking-wider">Categories</h3>
         <div className="flex flex-col gap-2">
           {categories.map(({ name, icon: Icon, color }) => (
-            <button key={name} onClick={() => setActiveCategory(name)} className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg text-left transition-all duration-200 ${activeCategory === name ? "bg-blue-600/30 text-white border border-blue-500 shadow-md" : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"}`}><Icon size={20} className={color} /><span className="font-medium">{name}</span></button>
+            <button key={name} onClick={() => handleCategoryChange(name)} className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg text-left transition-all duration-200 ${activeCategory === name ? "bg-blue-600/30 text-white border border-blue-500 shadow-md" : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"}`}><Icon size={20} className={color} /><span className="font-medium">{name}</span></button>
           ))}
         </div>
         <div className="mt-auto pt-4 border-t border-slate-700">
-          <button onClick={() => setActiveCategory('Security')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg text-left transition-all duration-200 ${activeCategory === 'Security' ? "bg-yellow-600/30 text-white border border-yellow-500 shadow-md" : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"}`}>
+          <button onClick={() => handleCategoryChange('Security')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg text-left transition-all duration-200 ${activeCategory === 'Security' ? "bg-yellow-600/30 text-white border border-yellow-500 shadow-md" : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"}`}>
             <ShieldAlert size={20} className="text-yellow-400" />
             <span className="font-medium">Security Logs</span>
           </button>
@@ -203,7 +216,6 @@ export default function VaultPage({ onLockVault }) {
           pauseOnHover
           theme="dark"
         />
-        {/* ✅ HEADER SECTION SE BUTTON HATA DIYA GAYA HAI */}
         {activeCategory === 'Security' ? (
           <SecurityLogViewer />
         ) : (
@@ -212,7 +224,6 @@ export default function VaultPage({ onLockVault }) {
               <div className="flex items-center gap-4">
                 {currentParentId !== activeCategory && <button onClick={goBack} className="p-2 rounded-lg hover:bg-slate-800 transition-colors"><ArrowLeft size={20} className="text-slate-300" /></button>}
                 <h2 className="text-xl font-semibold tracking-wide">{activeCategory}</h2>
-                {/* add a search functionality here */}
                 <div className="relative flex-grow max-w-xs ml-6">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <Search size={18} className="text-slate-500" />
@@ -269,3 +280,4 @@ export default function VaultPage({ onLockVault }) {
     </div>
   );
 }
+
