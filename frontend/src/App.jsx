@@ -8,6 +8,8 @@ import OpenVaultScreen from './components/OpenVaultScreen.jsx';
 import VaultPage from './components/voult/VaultPage.jsx';
 import ReauthScreen from './components/ReauthScreen.jsx';
 import ForgotPasswordScreen from './components/ForgotPasswordScreen.jsx';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import './App.css';
 
 function App() {
@@ -89,23 +91,24 @@ function App() {
   }
 
   return (
-
-//  {notification && (
-//             <div
-//                 className={`fixed top-5 left-1/2 -translate-x-1/2 px-6 py-3 rounded-lg text-white shadow-lg z-50 ${
-//                     notificationType === 'success' ? 'bg-green-600' : 'bg-red-600'
-//                 }`}
-//             >
-//                 {notification}
-//             </div>
-//         )}
-
-    // YAHA BHI KEY KA ISTEMAAL HO RAHA HAI
+    <>
+      <ToastContainer
+          position="top-center"
+          autoClose={3000}
+          hideProgressBar={false}
+          newestOnTop={false}
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme="dark"
+        />
     <Layout viewKey={`${currentView}-${viewKey}`}>
       {currentView === 'welcome' && (
         <WelcomeScreen
           onCreateClick={handleGoToCreate}
-          onOpenClick={navigateToOpen} // Naye function ka istemaal karein
+          onOpenClick={navigateToOpen} 
         />
       )}
       {currentView === 'create' && (
@@ -131,11 +134,12 @@ function App() {
       )}
       {currentView === 'forgotPassword' && (
         <ForgotPasswordScreen
-          onResetSuccess={navigateToOpen} // Naye function ka istemaal karein
-          onBackClick={navigateToOpen}    // Naye function ka istemaal karein
+          onResetSuccess={navigateToOpen} 
+          onBackClick={navigateToOpen}    
         />
       )}
     </Layout>
+    </>
   );
 }
 
