@@ -13,6 +13,7 @@ const vaultStoragePath = path.join(userDataPath, 'secure_vault_files');
 const securityLogsPath = path.join(userDataPath, 'security_logs');
 // --- Global variable to hold the password for the session ---
 let sessionPassword = null;
+
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 16;
 const SALT_LENGTH = 64;
@@ -36,6 +37,7 @@ if (!fs.existsSync(vaultDataPath)) {
 // --- Helper Functions ---
 const readVaultData = () => JSON.parse(fs.readFileSync(vaultDataPath, 'utf-8'));
 const writeVaultData = (data) => fs.writeFileSync(vaultDataPath, JSON.stringify(data, null, 2));
+
 
 // --- Corrected file categorization ---
 const getCategoryFromFile = (fileName) => {
@@ -278,65 +280,77 @@ ipcMain.handle('upload-file', async (event, { parentId, category }) => {
   let addedCount = 0;
   let skippedCount = 0;
 
+  const specificCategories = ['Photos', 'PDFs', 'Audio', 'Video'];
+  const targetCategory = category.trim();
+
   for (const filePath of filePaths) {
     const fileName = path.basename(filePath);
-    const destinationPath = path.join(vaultStoragePath, fileName + ".enc");
-
     const determinedCategory = getCategoryFromFile(fileName);
+    
+    let isMismatch = false;
+    let errorMessage = "Cannot upload here. File type mismatch.";
 
-    // 1. EARLY EXIT VALIDATION: Galat category mein upload hone par turant error dekar ruk jao
-    if ((category === 'Photos' && determinedCategory !== 'Photos') ||
-      (category === 'PDFs' && determinedCategory !== 'PDFs') || 
-      (category === 'Audio' && determinedCategory !== 'Audio') || 
-      (category === 'Video' && determinedCategory !== 'Video') ) {
-
-      // Agar pehli hi file fail ho gayi, toh poore function se return ho jao
-      return { success: false, message: "Cannot upload here. File type mismatch." };
+  
+    if (specificCategories.includes(targetCategory) && targetCategory !== determinedCategory) {
+        isMismatch = true;
+        errorMessage = `Cannot upload a ${determinedCategory.toLowerCase().replace(/s$/, '')} file to the ${targetCategory} folder.`;
+    }
+    
+    else if (targetCategory === 'Other Files' && specificCategories.includes(determinedCategory)) {
+        isMismatch = true;
+        errorMessage = `File type not allowed in 'Other Files'. Please use the dedicated ${determinedCategory} category for this file.`;
     }
 
-    // 2. DUPLICATE CHECK: Agar validation pass ho gaya, tab duplicate check karo
+    if (isMismatch) {
+        return { success: false, message: errorMessage };
+    }
+
+    // Duplicate check
+    const destinationPath = path.join(vaultStoragePath, fileName + ".enc");
     if (fs.existsSync(destinationPath)) {
       skippedCount++;
       continue;
     }
 
-    // 3. FILE ENCRYPT & SAVE
-    const fileBuffer = fs.readFileSync(filePath);
-    const encryptedBuffer = encryptFile(fileBuffer, sessionPassword);
-    fs.writeFileSync(destinationPath, encryptedBuffer);
-    fs.unlinkSync(filePath); // Original file delete ho jayegi
-    addedCount++;
-
-    const stats = fs.statSync(destinationPath);
-    const fileDetails = {
-      id: `file-${Date.now()}-${Math.random()}`,
-      type: 'file',
-      name: fileName,
-      path: destinationPath,
-      size: `${(stats.size / (1024 * 1024)).toFixed(2)} MB`,
-      parentId: parentId,
-    };
-
-    // --- BUG FIX: This logic correctly handles old vaults ---
-    // It checks if a category like 'Audio' or 'Video' exists in the data file.
-    // If not, it creates it before adding the file.
-    if (!vaultData[determinedCategory]) {
-      vaultData[determinedCategory] = [];
+    // FILE ENCRYPT & SAVE
+    try {
+        const fileBuffer = fs.readFileSync(filePath);
+        const encryptedBuffer = encryptFile(fileBuffer, sessionPassword);
+        fs.writeFileSync(destinationPath, encryptedBuffer);
+        fs.unlinkSync(filePath); // Original file delete ho jayegi
+        addedCount++;
+    
+        const stats = fs.statSync(destinationPath);
+        const fileDetails = {
+          id: `file-${Date.now()}-${Math.random()}`,
+          type: 'file',
+          name: fileName,
+          path: destinationPath,
+          size: `${(stats.size / (1024 * 1024)).toFixed(2)} MB`,
+          parentId: parentId,
+        };
+    
+        // Determined category ke hisaab se data mein push karein
+        if (!vaultData[determinedCategory]) {
+          vaultData[determinedCategory] = [];
+        }
+        vaultData[determinedCategory].push(fileDetails);
+    } catch (error) {
+        console.error("File processing failed:", error);
+        return { success: false, message: `Failed to process file ${fileName}: ${error.message}` };
     }
-    vaultData[determinedCategory].push(fileDetails);
   }
 
 
   writeVaultData(vaultData);
 
-  // 4. FINAL SIMPLE MESSAGE LOGIC
+  // FINAL SIMPLE MESSAGE LOGIC
   let message = "";
   if (addedCount > 0) message += `${addedCount} file(s) added successfully.`;
   if (skippedCount > 0) message += ` ${skippedCount} file(s) were skipped as duplicates.`;
 
   return { success: addedCount > 0, message: message.trim() };
 });
-
 ipcMain.handle('open-file', async (event, filePath) => {
   if (!sessionPassword) return { success: false, message: "Security Error." };
   if (!filePath || !filePath.startsWith(vaultStoragePath)) return { success: false, message: "Invalid file path." };
