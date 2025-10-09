@@ -1,14 +1,14 @@
-// VaultPage.jsx (Button Removed)
-
 import React, { useState, useEffect } from "react";
 import {
   ShieldCheck, Image, FileText, FileArchive, UploadCloud, File,
   LogOut, MoreVertical, ArrowUpFromLine, FolderPlus,
-  FileEdit, Folder, ArrowLeft, ShieldAlert,Search
+  FileEdit, Folder, ArrowLeft, ShieldAlert, Search
 } from "lucide-react";
 import CreateFolderModal from './CreateFolderModal';
 import RenameModal from "./RenameModal";
 import SecurityLogViewer from "../SecurityLogViewer";
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const FilePreview = ({ file }) => {
   const [previewUrl, setPreviewUrl] = useState(null);
@@ -18,7 +18,7 @@ const FilePreview = ({ file }) => {
     const loadPreview = async () => {
       setIsLoading(true);
       const isImage = file.type === 'file' && ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(file.name.split('.').pop().toLowerCase());
-      
+
       if (isImage) {
         const url = await window.api.getFileAsDataUrl(file.path);
         setPreviewUrl(url);
@@ -33,11 +33,11 @@ const FilePreview = ({ file }) => {
   if (isLoading) {
     return <div className="w-full h-24 bg-slate-800 rounded-md mb-4 animate-pulse"></div>;
   }
-  
+
   if (previewUrl) {
     return <img src={previewUrl} alt={file.name} className="w-full h-24 object-cover rounded-md mb-4" />;
   }
-  
+
   return (
     <div className="flex justify-between items-start mb-4">
       {file.type === 'folder'
@@ -57,8 +57,6 @@ export default function VaultPage({ onLockVault }) {
   const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
   const [fileToRename, setFileToRename] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
-  //it  is  for  remove  alert ();
-const [notification, setNotification] = useState(''); 
   const loadVaultData = async () => {
     const data = await window.api.getVaultData();
     if (data) setFiles(data);
@@ -68,46 +66,47 @@ const [notification, setNotification] = useState('');
     setActiveCategory(categoryName);
     setCurrentParentId(categoryName); // Folder view ko reset karta hai
     setSearchQuery(""); // Category badalne par search ko clear karta hai
-};
+  };
   useEffect(() => { loadVaultData(); }, []);
 
 
- useEffect(() => {
+  useEffect(() => {
     if (files && files[activeCategory]) {
-        // Pehle current folder ke items nikalo
-        let filteredItems = files[activeCategory].filter(item => item.parentId === currentParentId);
+      // Pehle current folder ke items nikalo
+      let filteredItems = files[activeCategory].filter(item => item.parentId === currentParentId);
 
-        // Agar search query hai, to usse filter karo
-        if (searchQuery.trim() !== "") {
-            filteredItems = filteredItems.filter(item =>
-                item.name.toLowerCase().includes(searchQuery.toLowerCase())
-            );
-        }
-        setItemsToDisplay(filteredItems);
+      // Agar search query hai, to usse filter karo
+      if (searchQuery.trim() !== "") {
+        filteredItems = filteredItems.filter(item =>
+          item.name.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+      }
+      setItemsToDisplay(filteredItems);
     }
-  }, [files, activeCategory, currentParentId, searchQuery]); 
+  }, [files, activeCategory, currentParentId, searchQuery]);
 
   const handleCreateFolder = async (folderName) => {
     const result = await window.api.createFolder({ category: activeCategory, folderName, parentId: currentParentId });
     if (result.success) {
-      alert(`Folder "${folderName}" created!`);
+      toast.success(`Folder "${folderName}" created!`);
       loadVaultData();
     } else {
-      alert(`Error: ${result.message}`);
+      toast.error(`Error: ${result.message}`);
     }
     setIsCreateFolderModalOpen(false);
   };
 
   const handleBrowseClick = async () => {
-    const result = await window.api.uploadFile({ 
-        parentId: currentParentId,
-        category: activeCategory
+    if (!window.api || typeof window.api.uploadFile !== 'function') return;
+    const result = await window.api.uploadFile({
+      parentId: currentParentId,
+      category: activeCategory
     });
-    if (result.message) {
-      alert(result.message);
-    }
     if (result.success) {
+      toast.success(result.message || "File(s) uploaded successfully!");
       loadVaultData();
+    } else if (result.message) {
+      toast.error(result.message);
     }
   };
 
@@ -122,7 +121,7 @@ const [notification, setNotification] = useState('');
       setCurrentParentId(item.id);
     } else {
       const openResult = await window.api.openFile(item.path);
-      if (!openResult.success) alert(`Could not open file: ${openResult.message}`);
+      if (!openResult.success) toast.error(`Could not open file: ${openResult.message}`);
     }
   };
 
@@ -140,32 +139,30 @@ const [notification, setNotification] = useState('');
       return;
     }
     if (action === 'export') {
-        const result = await window.api.exportFile(item);
-        if (result.success) {
-          alert(`"${item.name}" has been exported and removed.`);
-          loadVaultData(); 
-        } else if (result.message) {
-          alert(result.message);
-        }
+      const result = await window.api.exportFile(item);
+      if (result.success) {
+        toast.success(`"${item.name}" has been exported and removed.`);
+        loadVaultData();
+      } else if (result.message) {
+        toast.error(result.message);
+      }
     }
   };
 
   const submitRename = async (newName) => {
-  if (newName && fileToRename && newName.trim() !== "" && newName !== fileToRename.name) {
-    const result = await window.api.renameFile(fileToRename, newName);
-    if (result.success) {
-      setNotification(`Item renamed to "${newName}"`); // <-- alert() ko isse badlein
-      loadVaultData();
-    } else {
-      setNotification(`Error: ${result.message}`); // <-- alert() ko isse badlein
+    if (newName && fileToRename && newName.trim() !== "" && newName !== fileToRename.name) {
+      if (!window.api || typeof window.api.renameFile !== 'function') return;
+      const result = await window.api.renameFile(fileToRename, newName);
+      if (result.success) {
+        toast.success(`Item renamed to "${newName}"`);
+        loadVaultData();
+      } else {
+        toast.error(`Error: ${result.message}`);
+      }
     }
-  }
-  setIsRenameModalOpen(false);
-  setFileToRename(null);
-
-  // 3 second baad notification hata dein
-  setTimeout(() => setNotification(''), 3000); 
-};
+    setIsRenameModalOpen(false);
+    setFileToRename(null);
+  };
   const categories = [
     { name: "Photos", icon: Image, color: "text-blue-400" },
     { name: "PDFs", icon: FileText, color: "text-red-400" },
@@ -176,7 +173,7 @@ const [notification, setNotification] = useState('');
     <div className="flex h-screen w-screen bg-slate-950 text-white font-sans overflow-hidden" onClick={() => setOpenMenuIndex(null)}>
       <CreateFolderModal isOpen={isCreateFolderModalOpen} onClose={() => setIsCreateFolderModalOpen(false)} onSubmit={handleCreateFolder} />
       <RenameModal isOpen={isRenameModalOpen} onClose={() => setIsRenameModalOpen(false)} onSubmit={submitRename} currentName={fileToRename?.name || ''} />
-      
+
       <aside className="w-64 flex-shrink-0 bg-slate-900/70 border-r border-slate-800 p-6 flex-col hidden md:flex">
         <div className="flex items-center gap-3 mb-10"><ShieldCheck size={32} className="text-green-400" /><h1 className="text-2xl font-bold tracking-wide">FileRakshak</h1></div>
         <h3 className="text-sm uppercase text-slate-400 mb-4 tracking-wider">Categories</h3>
@@ -186,81 +183,87 @@ const [notification, setNotification] = useState('');
           ))}
         </div>
         <div className="mt-auto pt-4 border-t border-slate-700">
-           <button onClick={() => setActiveCategory('Security')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg text-left transition-all duration-200 ${activeCategory === 'Security' ? "bg-yellow-600/30 text-white border border-yellow-500 shadow-md" : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"}`}>
-              <ShieldAlert size={20} className="text-yellow-400" />
-              <span className="font-medium">Security Logs</span>
+          <button onClick={() => setActiveCategory('Security')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg text-left transition-all duration-200 ${activeCategory === 'Security' ? "bg-yellow-600/30 text-white border border-yellow-500 shadow-md" : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"}`}>
+            <ShieldAlert size={20} className="text-yellow-400" />
+            <span className="font-medium">Security Logs</span>
           </button>
         </div>
       </aside>
 
       <main className="flex-1 flex flex-col overflow-hidden">
-        
-         {notification && (
-    <div className="bg-green-600 text-white text-center p-2 animate-pulse">
-      {notification}
-    </div>
-  )}
+        <ToastContainer
+          position="top-center"
+          autoClose={3000}
+          hideProgressBar={false}
+          newestOnTop={false}
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme="dark"
+        />
         {/* ✅ HEADER SECTION SE BUTTON HATA DIYA GAYA HAI */}
         {activeCategory === 'Security' ? (
           <SecurityLogViewer />
         ) : (
           <>
-        <header className="flex items-center justify-between px-8 py-4 bg-slate-900/80 backdrop-blur-sm border-b border-slate-800">
-          <div className="flex items-center gap-4">
-            {currentParentId !== activeCategory && <button onClick={goBack} className="p-2 rounded-lg hover:bg-slate-800 transition-colors"><ArrowLeft size={20} className="text-slate-300" /></button>}
-            <h2 className="text-xl font-semibold tracking-wide">{activeCategory}</h2>
-            {/* add a search functionality here */}
-             <div className="relative flex-grow max-w-xs ml-6">
-        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Search size={18} className="text-slate-500" />
-        </div>
-        <input
-            type="text"
-            placeholder="Search in this folder..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-slate-800/80 border border-slate-700 rounded-lg pl-10 pr-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-        />
-    </div>
-          </div>
-          <div className="flex items-center gap-4">
-            <button onClick={() => setIsCreateFolderModalOpen(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-800/80 text-slate-300 hover:bg-slate-700/80 hover:text-white transition-all font-semibold"><FolderPlus size={18} /> New Folder</button>
-            <button onClick={onLockVault} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600/80 text-white hover:bg-red-700/80 transition-all font-semibold"><LogOut size={18} /> Lock Vault</button>
-          </div>
-        </header>
-
-        <section className="flex-1 p-8 overflow-y-auto">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
-            {itemsToDisplay.map((item, index) => (
-              <div key={item.id} onClick={() => handleItemClick(item)} className="bg-slate-900/70 p-5 rounded-xl border border-slate-800 hover:border-blue-500 transition-all group relative cursor-pointer">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <FilePreview file={item} />
+            <header className="flex items-center justify-between px-8 py-4 bg-slate-900/80 backdrop-blur-sm border-b border-slate-800">
+              <div className="flex items-center gap-4">
+                {currentParentId !== activeCategory && <button onClick={goBack} className="p-2 rounded-lg hover:bg-slate-800 transition-colors"><ArrowLeft size={20} className="text-slate-300" /></button>}
+                <h2 className="text-xl font-semibold tracking-wide">{activeCategory}</h2>
+                {/* add a search functionality here */}
+                <div className="relative flex-grow max-w-xs ml-6">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Search size={18} className="text-slate-500" />
                   </div>
-                  <div className="relative z-10">
-                    <button onClick={(e) => handleMenuClick(index, e)} className="p-1 -mr-2 -mt-2 rounded-full text-slate-500 hover:text-white hover:bg-slate-700 transition-colors"><MoreVertical size={18} /></button>
-                    {openMenuIndex === index && (
-                      <div className="absolute right-0 mt-2 w-44 rounded-lg bg-slate-800 shadow-lg border border-slate-700">
-                        <button onClick={(e) => handleAction('rename', item, e)} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-left text-slate-300 hover:bg-slate-700/70 rounded-t-lg transition"><FileEdit size={16} className="text-blue-400" /><span>Rename</span></button>
-                        {item.type !== 'folder' && 
-                          <button onClick={(e) => handleAction('export', item, e)} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-left text-slate-300 hover:bg-slate-700/70 rounded-b-lg transition"><ArrowUpFromLine size={16} className="text-green-400" /><span>Export</span></button>
-                        }
-                      </div>
-                    )}
-                  </div>
+                  <input
+                    type="text"
+                    placeholder="Search in this folder..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full bg-slate-800/80 border border-slate-700 rounded-lg pl-10 pr-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                  />
                 </div>
-                <p className="text-sm font-medium text-slate-200 truncate" title={item.name}>{item.name}</p>
-                {item.type !== "folder" && <p className="text-xs text-slate-500 mt-1">{item.size}</p>}
               </div>
-            ))}
-            <div onClick={handleBrowseClick} className="border-2 border-dashed border-slate-700 hover:border-blue-500 hover:bg-slate-800/40 transition-all rounded-xl flex flex-col items-center justify-center p-6 cursor-pointer group min-h-[200px]">
-              <UploadCloud size={32} className="text-slate-500 mb-2 group-hover:text-blue-400" />
-              <p className="text-slate-300 text-sm">Add files to this folder</p>
-              <p className="text-blue-400 font-semibold text-sm">or Browse</p>
-            </div>
-          </div>
-        </section>
-        </> 
+              <div className="flex items-center gap-4">
+                <button onClick={() => setIsCreateFolderModalOpen(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-800/80 text-slate-300 hover:bg-slate-700/80 hover:text-white transition-all font-semibold"><FolderPlus size={18} /> New Folder</button>
+                <button onClick={onLockVault} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600/80 text-white hover:bg-red-700/80 transition-all font-semibold"><LogOut size={18} /> Lock Vault</button>
+              </div>
+            </header>
+
+            <section className="flex-1 p-8 overflow-y-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
+                {itemsToDisplay.map((item, index) => (
+                  <div key={item.id} onClick={() => handleItemClick(item)} className="bg-slate-900/70 p-5 rounded-xl border border-slate-800 hover:border-blue-500 transition-all group relative cursor-pointer">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <FilePreview file={item} />
+                      </div>
+                      <div className="relative z-10">
+                        <button onClick={(e) => handleMenuClick(index, e)} className="p-1 -mr-2 -mt-2 rounded-full text-slate-500 hover:text-white hover:bg-slate-700 transition-colors"><MoreVertical size={18} /></button>
+                        {openMenuIndex === index && (
+                          <div className="absolute right-0 mt-2 w-44 rounded-lg bg-slate-800 shadow-lg border border-slate-700">
+                            <button onClick={(e) => handleAction('rename', item, e)} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-left text-slate-300 hover:bg-slate-700/70 rounded-t-lg transition"><FileEdit size={16} className="text-blue-400" /><span>Rename</span></button>
+                            {item.type !== 'folder' &&
+                              <button onClick={(e) => handleAction('export', item, e)} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-left text-slate-300 hover:bg-slate-700/70 rounded-b-lg transition"><ArrowUpFromLine size={16} className="text-green-400" /><span>Export</span></button>
+                            }
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <p className="text-sm font-medium text-slate-200 truncate" title={item.name}>{item.name}</p>
+                    {item.type !== "folder" && <p className="text-xs text-slate-500 mt-1">{item.size}</p>}
+                  </div>
+                ))}
+                <div onClick={handleBrowseClick} className="border-2 border-dashed border-slate-700 hover:border-blue-500 hover:bg-slate-800/40 transition-all rounded-xl flex flex-col items-center justify-center p-6 cursor-pointer group min-h-[200px]">
+                  <UploadCloud size={32} className="text-slate-500 mb-2 group-hover:text-blue-400" />
+                  <p className="text-slate-300 text-sm">Add files to this folder</p>
+                  <p className="text-blue-400 font-semibold text-sm">or Browse</p>
+                </div>
+              </div>
+            </section>
+          </>
         )}
       </main>
     </div>

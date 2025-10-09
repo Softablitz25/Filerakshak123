@@ -89,7 +89,7 @@ export default function OpenVaultScreen({ onBackClick, onFormSubmit, onForgotPas
       setPassword('');
 
       if (newAttempts >= MAX_ATTEMPTS) {
-        handleIntrusion(); // Photo lene wala function call hoga
+        handleIntrusion(); // function call to capture  image
         setError(`Too many wrong password attempts! Wait for ${30} seconds.`);
         setIsLocked(true);
         setLockoutTimer(30);

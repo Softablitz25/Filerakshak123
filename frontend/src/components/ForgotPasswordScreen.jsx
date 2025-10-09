@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { KeyRound, ShieldQuestion, Loader2 } from 'lucide-react';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
-// This helper object maps the short question key to the full question text
 const questionMap = {
   pet: "What was your first pet's name?",
   city: "In what city were you born?",
@@ -9,7 +10,7 @@ const questionMap = {
 };
 
 export default function ForgotPasswordScreen({ onResetSuccess, onBackClick }) {
-  const [stage, setStage] = useState('verify'); // 'verify' or 'reset'
+  const [stage, setStage] = useState('verify'); 
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -41,7 +42,7 @@ export default function ForgotPasswordScreen({ onResetSuccess, onBackClick }) {
   const handleVerify = async (e) => {
     e.preventDefault();
     if (!answer.trim()) {
-      setError("Please provide an answer.");
+      toast.error("Please provide an answer.");
       return;
     }
     const result = await window.api.verifyAnswer(answer);
@@ -49,7 +50,7 @@ export default function ForgotPasswordScreen({ onResetSuccess, onBackClick }) {
       setError('');
       setStage('reset');
     } else {
-      setError("That answer is incorrect. Please try again.");
+      toast.error("That answer is incorrect. Please try again.");
     }
   };
 
@@ -57,21 +58,20 @@ export default function ForgotPasswordScreen({ onResetSuccess, onBackClick }) {
   const handleResetPassword = async (e) => {
     e.preventDefault();
     
-    // ✅ YAHAN BADLAV KIYA GAYA HAI (8 se 4)
     if (newPassword.length < 4) {
-      setError("New password must be at least 4 characters long.");
+      toast.error("New password must be at least 4 characters long.");
       return;
     }
     if (newPassword !== confirmPassword) {
-      setError("Passwords do not match.");
+      toast.error("Passwords do not match.");
       return;
     }
     const result = await window.api.resetPassword(newPassword);
     if (result.success) {
-      alert("Password has been reset successfully!");
+      toast.success("Password has been reset successfully!");
       onResetSuccess();
     } else {
-      setError("Failed to reset password. Please try again.");
+      toast.error("Failed to reset password. Please try again.");
     }
   };
 
