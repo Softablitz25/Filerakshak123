@@ -220,7 +220,7 @@ ipcMain.on('save-password', (event, data) => {
     console.error('Could not clear old vault files:', err);
   }
 
-  // Purane security logs ko clear karein
+  // Purane security logs ko clear 
   try {
     const logFiles = fs.readdirSync(securityLogsPath);
     for (const file of logFiles) {
@@ -231,11 +231,11 @@ ipcMain.on('save-password', (event, data) => {
     console.error('Could not clear security logs:', err);
   }
 
-  // Vault data file ko reset karein
+  // Vault data file ko reset 
   const emptyData = { Photos: [], PDFs: [], Audio: [], Video: [], "Other Files": [] };
   writeVaultData(emptyData);
 
-  // Naya password aur config save karein
+  // Naya password aur config save 
   const hashedPassword = bcrypt.hashSync(data.password, 10);
   const answerHash = bcrypt.hashSync(data.securityAnswer, 10);
 
@@ -344,7 +344,6 @@ ipcMain.handle('upload-file', async (event, { parentId, category }) => {
 
   writeVaultData(vaultData);
 
-  // FINAL SIMPLE MESSAGE LOGIC
   let message = "";
   if (addedCount > 0) message += `${addedCount} file(s) added successfully.`;
   if (skippedCount > 0) message += ` ${skippedCount} file(s) were skipped as duplicates.`;
@@ -506,15 +505,32 @@ ipcMain.handle('verify-answer', (event, userAnswer) => {
   return { success: bcrypt.compareSync(userAnswer, answerHash) };
 });
 
+
 ipcMain.handle('reset-password', (event, newPassword) => {
   try {
+
+    // 1. Clear all encrypted files from the storage directory
+    const files = fs.readdirSync(vaultStoragePath);
+    for (const file of files) {
+      fs.unlinkSync(path.join(vaultStoragePath, file));
+    }
+    console.log('Old encrypted files have been wiped.');
+
+    // 2. Reset the vault data JSON to be empty
+    const emptyData = { Photos: [], PDFs: [], Audio: [], Video: [], "Other Files": [] };
+    writeVaultData(emptyData);
+    console.log('Vault data has been reset.');
+
+
+    // 3. Save the new password hash
     const savedConfig = JSON.parse(fs.readFileSync(vaultConfigPath, 'utf-8'));
     savedConfig.password = bcrypt.hashSync(newPassword, 10);
     fs.writeFileSync(vaultConfigPath, JSON.stringify(savedConfig, null, 2));
+    
     return { success: true };
   } catch (error) {
-    console.error("Password reset failed:", error);
-    return { success: false, message: "Could not reset password." };
+    console.error("Password reset and data wipe failed:", error);
+    return { success: false, message: "Could not reset password and clear old data." };
   }
 });
 
